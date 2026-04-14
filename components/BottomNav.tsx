@@ -6,7 +6,7 @@ import styles from './BottomNav.module.css'
 
 const TABS = [
   {
-    id: 'home', href: '/home', label: '홈',
+    id: 'home', href: '/service', label: '홈',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -43,13 +43,13 @@ const TABS = [
 export default function BottomNav() {
   const pathname = usePathname()
 
-  // 스플래시 페이지에서는 숨김
-  if (pathname === '/') return null
+  // 랜딩/스플래시에서는 숨김
+  if (pathname === '/' || pathname === '/home') return null
 
   return (
     <nav className={styles.nav}>
       {TABS.map((tab) => {
-        const isActive = tab.href === '/home' ? pathname === '/home' : pathname.startsWith(tab.href)
+        const isActive = tab.href === '/service' ? pathname === '/service' : pathname.startsWith(tab.href)
         return (
           <Link
             key={tab.id}

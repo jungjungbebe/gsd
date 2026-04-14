@@ -4,9 +4,10 @@ import { useEffect, useRef } from 'react'
 
 interface TranslatorOrbProps {
   isActive?: boolean
+  size?: number
 }
 
-export default function TranslatorOrb({ isActive = false }: TranslatorOrbProps) {
+export default function TranslatorOrb({ isActive = false, size: orbSize = 180 }: TranslatorOrbProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const uniformsRef = useRef<any>(null)
   const glowUniformsRef = useRef<any>(null)
@@ -28,7 +29,7 @@ export default function TranslatorOrb({ isActive = false }: TranslatorOrbProps) 
     async function init() {
       const THREE = await import('three')
 
-      const size = 180
+      const size = orbSize
       const scene = new THREE.Scene()
       const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100)
       camera.position.set(0, 0, 4.0)
@@ -314,8 +315,8 @@ export default function TranslatorOrb({ isActive = false }: TranslatorOrbProps) 
     <div
       ref={containerRef}
       style={{
-        width: 180,
-        height: 180,
+        width: orbSize,
+        height: orbSize,
         margin: '0 auto',
         position: 'relative',
         zIndex: 10,
