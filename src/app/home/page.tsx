@@ -9,11 +9,16 @@ import styles from './home.module.css'
 
 export default function HomePage() {
   const [orbActive, setOrbActive] = useState(true)
+  const [show, setShow] = useState({ orb: false, translator: false, quick: false, curation: false })
 
-  // 인삿말 시퀀스 동안 Orb 활성화 (2.5초)
   useEffect(() => {
-    const timer = setTimeout(() => setOrbActive(false), 2500)
-    return () => clearTimeout(timer)
+    // 순차 페이드인
+    setTimeout(() => setShow((s) => ({ ...s, orb: true })), 200)
+    setTimeout(() => setShow((s) => ({ ...s, translator: true })), 600)
+    setTimeout(() => setShow((s) => ({ ...s, quick: true })), 1000)
+    setTimeout(() => setShow((s) => ({ ...s, curation: true })), 1400)
+    // 오브 활성 해제
+    setTimeout(() => setOrbActive(false), 2500)
   }, [])
 
   return (
@@ -23,13 +28,21 @@ export default function HomePage() {
         <div className={styles.avatar}>U</div>
       </header>
 
-      <div style={{ padding: '8px 0', display: 'flex', justifyContent: 'center' }}>
-        <TranslatorOrb isActive={orbActive} />
+      <div className={`${styles.fadeItem} ${show.orb ? styles.fadeIn : ''}`}>
+        <div style={{ padding: '8px 0', display: 'flex', justifyContent: 'center' }}>
+          <TranslatorOrb isActive={orbActive} />
+        </div>
       </div>
 
-      <TranslatorSection />
-      <QuickMenu />
-      <div id="curation">
+      <div className={`${styles.fadeItem} ${show.translator ? styles.fadeIn : ''}`}>
+        <TranslatorSection />
+      </div>
+
+      <div className={`${styles.fadeItem} ${show.quick ? styles.fadeIn : ''}`}>
+        <QuickMenu />
+      </div>
+
+      <div className={`${styles.fadeItem} ${show.curation ? styles.fadeIn : ''}`} id="curation">
         <CurationSection />
       </div>
     </main>
