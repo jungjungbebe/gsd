@@ -54,7 +54,7 @@ export default function LandingHero() {
         transition={{ delay: 0.5, duration: 0.6 }}
         style={{
           position: 'absolute',
-          top: 160,
+          top: 110,
           left: 0,
           right: 0,
           margin: '0 auto',
@@ -89,7 +89,7 @@ export default function LandingHero() {
               variants={wordVariants}
               style={{
                 fontFamily: "'Playfair Display', serif",
-                fontSize: 'clamp(69px, 12vw, 124px)',
+                fontSize: 'clamp(40px, 6vw, 72px)',
                 fontWeight: 500,
                 fontStyle: w.italic ? 'italic' : 'normal',
                 letterSpacing: '-0.01em',
@@ -114,7 +114,7 @@ export default function LandingHero() {
               variants={wordVariants}
               style={{
                 fontFamily: "'Playfair Display', serif",
-                fontSize: 'clamp(69px, 12vw, 124px)',
+                fontSize: 'clamp(40px, 6vw, 72px)',
                 fontWeight: 500,
                 fontStyle: w.italic ? 'italic' : 'normal',
                 letterSpacing: '-0.01em',
@@ -141,7 +141,7 @@ export default function LandingHero() {
           whileHover={{ scale: 1.03, filter: 'drop-shadow(0 16px 48px rgba(160,120,220,0.4))' }}
           transition={{ type: 'spring', stiffness: 200, damping: 15 }}
         >
-          <TranslatorOrb isActive={false} size={280} />
+          <TranslatorOrb isActive={false} size={200} />
         </motion.div>
       </motion.div>
 

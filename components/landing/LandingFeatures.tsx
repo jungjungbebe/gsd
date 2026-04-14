@@ -93,7 +93,7 @@ export default function LandingFeatures() {
       initial="hidden"
       whileInView="show"
       viewport={{ once: true, margin: '-80px' }}
-      style={{ padding: '20px 24px 80px', maxWidth: 1100, margin: '-140px auto 0' }}
+      style={{ padding: '20px 24px 80px', maxWidth: 1000, margin: '-60px auto 0' }}
     >
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
