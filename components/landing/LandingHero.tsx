@@ -151,6 +151,7 @@ export default function LandingHero() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1.8, duration: 0.6 }}
+        style={{ marginTop: 20 }}
       >
         <motion.a
           href="/service"
@@ -158,7 +159,7 @@ export default function LandingHero() {
           whileTap={{ scale: 0.96 }}
           transition={{ type: 'spring', stiffness: 300, damping: 15 }}
           style={{
-            display: 'inline-block', padding: '14px 44px', fontSize: 15, fontWeight: 400,
+            display: 'inline-block', padding: '11px 36px', fontSize: 13, fontWeight: 400,
             color: '#fff', background: 'rgba(255,255,255,0.1)',
             backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
             border: '0.5px solid rgba(255,255,255,0.25)', borderRadius: 999,
