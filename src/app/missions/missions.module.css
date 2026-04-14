@@ -1,0 +1,212 @@
+.page {
+  min-height: 100vh;
+  max-width: 430px;
+  margin: 0 auto;
+  padding-bottom: 100px;
+}
+
+/* 헤더 */
+.header {
+  padding: 48px 24px 16px;
+}
+
+.headerEyebrow {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.headerTitle {
+  font-size: 28px;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+/* 세로 스크롤 리스트 */
+.slider {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 16px;
+}
+
+.slide {
+  width: 100%;
+}
+
+/* 카드 */
+.card {
+  width: 100%;
+  min-height: 280px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 0.5px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 4px 24px rgba(160, 120, 200, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  padding: 0;
+}
+
+.card:active {
+  transform: scale(0.98);
+}
+
+.card:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* 카드 상단 비주얼 */
+.cardVisual {
+  position: relative;
+  height: 140px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.cardGlow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cardGrid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 36px 36px;
+  pointer-events: none;
+}
+
+.cardIconArea {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 12px;
+}
+
+.cardIconRing {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cardIconDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+
+.cardEyebrow {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+}
+
+/* 카드 하단 텍스트 */
+.cardBody {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.2);
+}
+
+.cardTitle {
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.cardDesc {
+  font-size: 13px;
+  font-weight: 300;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: pre-line;
+  margin-bottom: 12px;
+}
+
+.cardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.15);
+}
+
+.cardDetail {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+
+.cardArrow {
+  font-size: 18px;
+  font-weight: 300;
+}
+
+/* 인디케이터 — 세로 스크롤에서는 숨김 */
+.dots {
+  display: none;
+}
+
+.dot {
+  display: none;
+}
+
+.dotActive {
+  display: none;
+}
+
+/* 뒤로가기 바 */
+.backBar {
+  padding: 12px 20px;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.2);
+}
+
+.backBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.15s ease;
+}
+
+.backBtn:hover {
+  color: var(--text-primary);
+}

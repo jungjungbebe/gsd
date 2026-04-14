@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/generate-mission",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}

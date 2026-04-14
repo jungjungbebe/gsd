@@ -1,0 +1,116 @@
+.section {
+  margin: 12px 12px 0;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 0.5px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 24px rgba(160, 120, 200, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  overflow: hidden;
+}
+
+.inner {
+  padding: 28px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.desc {
+  font-size: 13px;
+  font-weight: 300;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.item {
+  display: flex;
+  gap: 16px;
+  padding: 20px 0;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.3);
+  align-items: flex-start;
+}
+
+.item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--text-muted);
+  min-width: 24px;
+  padding-top: 2px;
+}
+
+.itemContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.itemHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.itemName {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.itemTag {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: #6040a0;
+  background: rgba(160, 120, 220, 0.1);
+  border: 0.5px solid rgba(160, 120, 220, 0.2);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.itemMood {
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--text-secondary);
+}
+
+.itemDesc {
+  font-size: 13px;
+  font-weight: 300;
+  color: var(--text-muted);
+  line-height: 1.65;
+  margin-top: 4px;
+}
