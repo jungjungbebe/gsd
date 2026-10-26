@@ -66,7 +66,7 @@ export default function LandingCTA() {
 
       <motion.a
         variants={item}
-        href="/service"
+        href="/tone-check"
         whileHover={{ scale: 1.03 }}
         whileTap={{ scale: 0.97 }}
         style={{

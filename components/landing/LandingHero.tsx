@@ -154,7 +154,7 @@ export default function LandingHero() {
         style={{ marginTop: 20 }}
       >
         <motion.a
-          href="/service"
+          href="/tone-check"
           whileHover={{ scale: 1.04, boxShadow: '0 12px 40px rgba(160,120,200,0.25)' }}
           whileTap={{ scale: 0.96 }}
           transition={{ type: 'spring', stiffness: 300, damping: 15 }}
