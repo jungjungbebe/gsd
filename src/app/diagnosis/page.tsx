@@ -53,7 +53,7 @@ export default function DiagnosisPage() {
     const finalResult = calculateLevel(finalCorrect)
 
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
+      <div className="min-h-screen flex flex-col items-center justify-center px-4 pt-12 pb-32">
         <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center gap-6">
           <h2 className="text-2xl font-bold text-gray-800">진단 완료!</h2>
 
@@ -109,7 +109,7 @@ export default function DiagnosisPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 pt-12 pb-32">
       <div className="w-full max-w-lg">
         {/* Header */}
         <div className="mb-6 text-center">
