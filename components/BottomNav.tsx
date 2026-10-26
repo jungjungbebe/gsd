@@ -6,7 +6,7 @@ import styles from './BottomNav.module.css'
 
 const TABS = [
   {
-    id: 'home', href: '/service', label: '홈',
+    id: 'home', href: '/tone-check', label: '홈',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -49,7 +49,10 @@ export default function BottomNav() {
   return (
     <nav className={styles.nav}>
       {TABS.map((tab) => {
-        const isActive = tab.href === '/service' ? pathname === '/service' : pathname.startsWith(tab.href)
+        // 홈 = TONE CHECK. 기존 /service 화면에서도 홈 탭이 켜져 있도록 함께 인식
+        const isActive = tab.id === 'home'
+          ? pathname === '/tone-check' || pathname === '/service'
+          : pathname.startsWith(tab.href)
         return (
           <Link
             key={tab.id}
