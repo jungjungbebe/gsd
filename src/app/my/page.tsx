@@ -26,8 +26,8 @@ interface SavedTranslation {
 }
 
 const EMPTY_STATES: Record<TabKey, { icon: string; text: string; btnLabel: string; btnHref: string }> = {
-  saved: { icon: '💾', text: '저장한 번역이 없어요.\n번역기를 사용해보세요', btnLabel: '번역기로 이동', btnHref: '/home' },
-  scrap: { icon: '⭐', text: '찜한 표현이 없어요.\n마음에 드는 표현을 저장해보세요', btnLabel: '표현 둘러보기', btnHref: '/home' },
+  saved: { icon: '💾', text: '저장한 번역이 없어요.\n번역기를 사용해보세요', btnLabel: '번역기로 이동', btnHref: '/tone-check' },
+  scrap: { icon: '⭐', text: '찜한 표현이 없어요.\n마음에 드는 표현을 저장해보세요', btnLabel: '표현 둘러보기', btnHref: '/tone-check' },
   archive: { icon: '✍️', text: '필사 기록이 없어요.\n오늘의 필사를 시작해보세요', btnLabel: '필사 미션 시작', btnHref: '/missions' },
 }
 
@@ -46,11 +46,16 @@ export default function MyPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('saved')
   const [translations, setTranslations] = useState<SavedTranslation[]>([])
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<{ email?: string; user_metadata?: { nickname?: string } } | null>(null)
 
   useEffect(() => {
     async function load() {
       try {
         const supabase = createClient()
+        try {
+          const { data: auth } = await supabase.auth.getUser()
+          setUser(auth?.user ?? null)
+        } catch {}
         const { data } = await supabase
           .from('translations')
           .select('id, input_text, output_cushion, output_practical, relation, purpose, formality, score, created_at')
@@ -79,7 +84,7 @@ export default function MyPage() {
           <div className={styles.rewardRow}>
             <div className={styles.rewardBadge}>
               <span className={styles.rewardIcon}>✦</span>
-              <span className={styles.rewardText}>120 P</span>
+              <span className={styles.rewardText}>{user ? '120 P' : 'GUEST'}</span>
             </div>
             <button className={styles.settingsBtn}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -96,10 +101,14 @@ export default function MyPage() {
               </div>
             </div>
             <div className={styles.nameArea}>
-              <span className={styles.nickname}>사용자</span>
-              <span className={styles.userId}>@user_munhae</span>
+              <span className={styles.nickname}>{user ? (user.user_metadata?.nickname || '사용자') : '게스트'}</span>
+              <span className={styles.userId}>{user ? `@${(user.email ?? 'user').split('@')[0]}` : '기록은 이 기기에 저장돼요'}</span>
             </div>
-            <Link href="/login" className={styles.editBtn}>프로필 편집</Link>
+            {user ? (
+              <Link href="/login" className={styles.editBtn}>프로필 편집</Link>
+            ) : (
+              <Link href="/signup" className={styles.editBtn}>가입하기</Link>
+            )}
           </div>
 
           <div className={styles.stats}>
@@ -114,7 +123,7 @@ export default function MyPage() {
             </div>
             <div className={styles.statDivider} />
             <div className={styles.statItem}>
-              <span className={styles.statValue}>Lv.2</span>
+              <span className={styles.statValue}>{user ? 'Lv.2' : 'Lv.1'}</span>
               <span className={styles.statLabel}>문해력 등급</span>
             </div>
           </div>
@@ -122,14 +131,14 @@ export default function MyPage() {
           <div className={styles.levelProgress}>
             <div className={styles.levelHeader}>
               <span className={styles.levelTitle}>어휘 탐험가</span>
-              <span className={styles.levelRange}>Lv.2 → Lv.3</span>
+              <span className={styles.levelRange}>{user ? 'Lv.2 → Lv.3' : 'Lv.1 → Lv.2'}</span>
             </div>
             <div className={styles.progressBar}>
-              <div className={styles.progressFill} style={{ width: '35%' }} />
+              <div className={styles.progressFill} style={{ width: user ? '35%' : '0%' }} />
             </div>
             <div className={styles.levelFooter}>
-              <span className={styles.levelXp}>350 / 1,000 XP</span>
-              <span className={styles.levelPercent}>35%</span>
+              <span className={styles.levelXp}>{user ? '350 / 1,000 XP' : '0 / 1,000 XP'}</span>
+              <span className={styles.levelPercent}>{user ? '35%' : '0%'}</span>
             </div>
           </div>
         </div>
