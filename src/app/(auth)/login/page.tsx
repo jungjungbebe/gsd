@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import styles from '../auth.module.css'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -44,32 +45,22 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center py-12 px-4">
-      <div className="w-full max-w-md">
-        {/* Card */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="inline-block bg-indigo-100 text-indigo-700 text-sm font-medium px-4 py-1.5 rounded-full mb-4">
-              문해력UP
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">로그인</h1>
-            <p className="text-sm text-gray-500 mt-2">계정에 로그인하여 학습을 이어가세요</p>
-          </div>
+    <div className={styles.page}>
+      <div className={styles.card}>
+        <div className={styles.grid} />
+        <div className={styles.glow} />
+        <div className={styles.inner}>
+          <div className={styles.eyebrow}>TUTONE · LOGIN</div>
+          <h1 className={styles.title}>로그인</h1>
+          <p className={styles.sub}>계정에 로그인하여 학습을 이어가세요</p>
 
-          {/* Error */}
-          {error && (
-            <div className="mb-6 px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600">
-              {error}
-            </div>
-          )}
+          <div className={styles.divider} />
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          {error && <div className={styles.error}>{error}</div>}
+
+          <form onSubmit={handleSubmit} className={styles.form}>
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
-                이메일
-              </label>
+              <label htmlFor="email" className={styles.label}>EMAIL</label>
               <input
                 id="email"
                 type="email"
@@ -77,14 +68,12 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="example@email.com"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className={styles.input}
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
-                비밀번호
-              </label>
+              <label htmlFor="password" className={styles.label}>PASSWORD</label>
               <input
                 id="password"
                 type="password"
@@ -92,25 +81,18 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="비밀번호를 입력해주세요"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className={styles.input}
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold text-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition"
-            >
+            <button type="submit" disabled={loading} className={styles.button}>
               {loading ? '로그인 중...' : '로그인'}
             </button>
           </form>
 
-          {/* Footer */}
-          <p className="text-center text-sm text-gray-500 mt-6">
+          <p className={styles.footer}>
             아직 계정이 없으신가요?{' '}
-            <Link href="/signup" className="text-indigo-600 font-medium hover:text-indigo-700 transition">
-              회원가입
-            </Link>
+            <Link href="/signup" className={styles.link}>회원가입</Link>
           </p>
         </div>
       </div>

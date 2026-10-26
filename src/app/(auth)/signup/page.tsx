@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import styles from '../auth.module.css'
 
 export default function SignupPage() {
   const [email, setEmail] = useState('')
@@ -51,25 +52,24 @@ export default function SignupPage() {
 
   if (success) {
     return (
-      <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center py-12 px-4">
-        <div className="w-full max-w-md">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
-            <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      <div className={styles.page}>
+        <div className={styles.card}>
+          <div className={styles.grid} />
+          <div className={styles.glow} />
+          <div className={`${styles.inner} ${styles.center}`}>
+            <div className={styles.iconRing}>
+              <svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">이메일을 확인해주세요</h2>
-            <p className="text-sm text-gray-500 mb-1">인증 이메일을 확인해주세요</p>
-            <p className="text-sm text-gray-400">
-              <span className="font-medium text-gray-600">{email}</span>으로 인증 링크를 보내드렸습니다.
+            <div className={styles.eyebrow}>CHECK YOUR MAIL</div>
+            <h2 className={styles.title}>이메일을 확인해주세요</h2>
+            <p className={styles.sub}>
+              <span className={styles.noteStrong}>{email}</span>으로 인증 링크를 보내드렸습니다.
             </p>
-            <Link
-              href="/login"
-              className="inline-block mt-6 text-sm text-indigo-600 font-medium hover:text-indigo-700 transition"
-            >
-              로그인 페이지로 이동
-            </Link>
+            <p className={styles.footer}>
+              <Link href="/login" className={styles.link}>로그인 페이지로 이동</Link>
+            </p>
           </div>
         </div>
       </div>
@@ -77,32 +77,22 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center py-12 px-4">
-      <div className="w-full max-w-md">
-        {/* Card */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="inline-block bg-indigo-100 text-indigo-700 text-sm font-medium px-4 py-1.5 rounded-full mb-4">
-              문해력UP
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">회원가입</h1>
-            <p className="text-sm text-gray-500 mt-2">무료로 시작하여 비즈니스 문해력을 키워보세요</p>
-          </div>
+    <div className={styles.page}>
+      <div className={styles.card}>
+        <div className={styles.grid} />
+        <div className={styles.glow} />
+        <div className={styles.inner}>
+          <div className={styles.eyebrow}>TUTONE · SIGN UP</div>
+          <h1 className={styles.title}>회원가입</h1>
+          <p className={styles.sub}>무료로 시작하여 비즈니스 문해력을 키워보세요</p>
 
-          {/* Error */}
-          {error && (
-            <div className="mb-6 px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600">
-              {error}
-            </div>
-          )}
+          <div className={styles.divider} />
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          {error && <div className={styles.error}>{error}</div>}
+
+          <form onSubmit={handleSubmit} className={styles.form}>
             <div>
-              <label htmlFor="nickname" className="block text-sm font-medium text-gray-700 mb-1.5">
-                닉네임
-              </label>
+              <label htmlFor="nickname" className={styles.label}>NICKNAME</label>
               <input
                 id="nickname"
                 type="text"
@@ -110,14 +100,12 @@ export default function SignupPage() {
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
                 placeholder="사용할 닉네임을 입력해주세요"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className={styles.input}
               />
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
-                이메일
-              </label>
+              <label htmlFor="email" className={styles.label}>EMAIL</label>
               <input
                 id="email"
                 type="email"
@@ -125,14 +113,12 @@ export default function SignupPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="example@email.com"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className={styles.input}
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
-                비밀번호
-              </label>
+              <label htmlFor="password" className={styles.label}>PASSWORD</label>
               <input
                 id="password"
                 type="password"
@@ -141,25 +127,18 @@ export default function SignupPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="6자 이상의 비밀번호를 입력해주세요"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className={styles.input}
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold text-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition"
-            >
+            <button type="submit" disabled={loading} className={styles.button}>
               {loading ? '가입 중...' : '무료로 시작하기'}
             </button>
           </form>
 
-          {/* Footer */}
-          <p className="text-center text-sm text-gray-500 mt-6">
+          <p className={styles.footer}>
             이미 계정이 있으신가요?{' '}
-            <Link href="/login" className="text-indigo-600 font-medium hover:text-indigo-700 transition">
-              로그인
-            </Link>
+            <Link href="/login" className={styles.link}>로그인</Link>
           </p>
         </div>
       </div>
