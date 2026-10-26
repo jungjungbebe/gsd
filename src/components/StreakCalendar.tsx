@@ -27,15 +27,15 @@ export default function StreakCalendar({ currentStreak, lastCompletedAt }: Strea
   const dayLabels = ['일', '월', '화', '수', '목', '금', '토']
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6">
+    <div className="rounded-3xl border border-white/50 bg-white/15 backdrop-blur-xl p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-800">학습 현황</h3>
+        <h3 className="font-semibold text-[#2a2035]">학습 현황</h3>
         {currentStreak > 0 ? (
-          <span className="text-2xl font-bold text-indigo-600">
+          <span className="text-2xl font-bold text-[#6040a0]">
             🔥 {currentStreak}일 연속
           </span>
         ) : (
-          <span className="text-sm text-gray-400">아직 시작 전이에요</span>
+          <span className="text-sm text-[#2a2035]/50">아직 시작 전이에요</span>
         )}
       </div>
       <div className="flex justify-between gap-1">
@@ -44,14 +44,14 @@ export default function StreakCalendar({ currentStreak, lastCompletedAt }: Strea
           const isToday = day.getTime() === today.getTime()
           return (
             <div key={i} className="flex flex-col items-center gap-1.5 flex-1">
-              <span className="text-xs text-gray-400">{dayLabels[day.getDay()]}</span>
+              <span className="text-xs text-[#2a2035]/50">{dayLabels[day.getDay()]}</span>
               <div
                 className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium transition-all
                   ${completed
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                    ? 'bg-[#6040a0] text-white shadow-md shadow-[#6040a0]/30'
                     : isToday
-                      ? 'border-2 border-indigo-300 text-indigo-400'
-                      : 'border-2 border-gray-200 text-gray-300'
+                      ? 'border-2 border-[#c0a8e0] text-[#6040a0]'
+                      : 'border-2 border-white/50 text-[#2a2035]/40'
                   }`}
               >
                 {completed ? '✓' : day.getDate()}

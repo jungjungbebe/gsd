@@ -24,20 +24,17 @@ interface BadgeData {
   earned_at: string
 }
 
-const DEMO_USER: UserData = { nickname: '데모 사용자', email: 'demo@example.com', level: 3 }
-const DEMO_STREAK: StreakData = { current_streak: 5, longest_streak: 12, last_completed_at: new Date().toISOString() }
-const DEMO_BADGES: BadgeData[] = [
-  { badge_type: 'first_mission', earned_at: '2024-12-01T09:00:00Z' },
-  { badge_type: '7day_streak', earned_at: '2024-12-08T09:00:00Z' },
-]
-const DEMO_MISSIONS_TOTAL = 23
+const EMPTY_USER: UserData = { nickname: null, email: '', level: 0 }
+const EMPTY_STREAK: StreakData = { current_streak: 0, longest_streak: 0, last_completed_at: null }
+
+const CARD = 'rounded-3xl border border-white/50 bg-white/15 backdrop-blur-xl'
 
 export default function DashboardPage() {
   const router = useRouter()
-  const [user, setUser] = useState<UserData>(DEMO_USER)
-  const [streak, setStreak] = useState<StreakData>(DEMO_STREAK)
-  const [badges, setBadges] = useState<BadgeData[]>(DEMO_BADGES)
-  const [totalMissions, setTotalMissions] = useState(DEMO_MISSIONS_TOTAL)
+  const [user, setUser] = useState<UserData>(EMPTY_USER)
+  const [streak, setStreak] = useState<StreakData>(EMPTY_STREAK)
+  const [badges, setBadges] = useState<BadgeData[]>([])
+  const [totalMissions, setTotalMissions] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -47,12 +44,12 @@ export default function DashboardPage() {
         const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
 
         if (authError || !authUser) {
-          // In demo mode (Supabase unreachable), show demo data instead of redirecting
           setLoading(false)
           return
         }
 
-        // Fetch user profile
+        setUser({ nickname: null, email: authUser.email ?? '', level: 0 })
+
         try {
           const { data: profile } = await supabase
             .from('users')
@@ -62,10 +59,9 @@ export default function DashboardPage() {
 
           if (profile) setUser(profile)
         } catch {
-          setUser({ nickname: null, email: authUser.email ?? '', level: 3 })
+          // keep auth email
         }
 
-        // Fetch streak
         try {
           const { data: streakData } = await supabase
             .from('streaks')
@@ -75,10 +71,9 @@ export default function DashboardPage() {
 
           if (streakData) setStreak(streakData)
         } catch {
-          // keep demo streak
+          // keep empty streak
         }
 
-        // Fetch badges
         try {
           const { data: badgeData } = await supabase
             .from('badges')
@@ -87,10 +82,9 @@ export default function DashboardPage() {
 
           if (badgeData) setBadges(badgeData)
         } catch {
-          // keep demo badges
+          // keep empty badges
         }
 
-        // Fetch total missions completed
         try {
           const { count } = await supabase
             .from('submissions')
@@ -99,10 +93,10 @@ export default function DashboardPage() {
 
           if (count !== null) setTotalMissions(count)
         } catch {
-          // keep demo total
+          // keep zero
         }
       } catch {
-        // All Supabase calls failed — demo data already set
+        // keep empty state
       } finally {
         setLoading(false)
       }
@@ -114,22 +108,22 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
-        <div className="text-gray-400 text-sm">불러오는 중...</div>
+        <div className="text-sm text-[#2a2035]/60">불러오는 중...</div>
       </div>
     )
   }
 
-  const displayName = user.nickname || user.email
+  const displayName = user.nickname || user.email.split('@')[0] || '게스트'
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
+    <div className="space-y-6 max-w-3xl mx-auto px-4 pt-6 pb-28">
       {/* Greeting */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-6 flex items-center justify-between">
+      <div className={`${CARD} p-6 flex items-center justify-between`}>
         <div>
-          <p className="text-gray-500 text-sm mb-1">반갑습니다!</p>
-          <h1 className="text-2xl font-bold text-gray-900">안녕하세요, {displayName}님!</h1>
+          <p className="text-[#2a2035]/60 text-sm mb-1">반갑습니다!</p>
+          <h1 className="text-2xl font-bold text-[#2a2035]">안녕하세요, {displayName}님!</h1>
         </div>
-        <div className="bg-indigo-100 text-indigo-700 font-bold text-lg px-4 py-2 rounded-full">
+        <div className="bg-white/40 border border-white/50 text-[#6040a0] font-bold text-lg px-4 py-2 rounded-full">
           Lv.{user.level}
         </div>
       </div>
@@ -142,17 +136,17 @@ export default function DashboardPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 text-center">
-          <div className="text-3xl font-bold text-indigo-600">{totalMissions}</div>
-          <div className="text-xs text-gray-500 mt-1">완료한 미션</div>
+        <div className={`${CARD} p-5 text-center`}>
+          <div className="text-3xl font-bold text-[#6040a0]">{totalMissions}</div>
+          <div className="text-xs text-[#2a2035]/60 mt-1">완료한 미션</div>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 text-center">
-          <div className="text-3xl font-bold text-orange-500">{streak.current_streak}</div>
-          <div className="text-xs text-gray-500 mt-1">현재 연속</div>
+        <div className={`${CARD} p-5 text-center`}>
+          <div className="text-3xl font-bold text-[#6040a0]">{streak.current_streak}</div>
+          <div className="text-xs text-[#2a2035]/60 mt-1">현재 연속</div>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 text-center">
-          <div className="text-3xl font-bold text-green-600">{streak.longest_streak}</div>
-          <div className="text-xs text-gray-500 mt-1">최장 연속</div>
+        <div className={`${CARD} p-5 text-center`}>
+          <div className="text-3xl font-bold text-[#6040a0]">{streak.longest_streak}</div>
+          <div className="text-xs text-[#2a2035]/60 mt-1">최장 연속</div>
         </div>
       </div>
 
@@ -161,28 +155,28 @@ export default function DashboardPage() {
 
       {/* Quick Actions */}
       <div>
-        <h2 className="font-semibold text-gray-700 mb-3 px-1">빠른 이동</h2>
+        <h2 className="font-semibold text-[#2a2035]/70 mb-3 px-1">빠른 이동</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Link
             href="/missions"
-            className="bg-indigo-600 text-white rounded-2xl p-5 hover:bg-indigo-700 transition group"
+            className="rounded-3xl bg-[#6040a0] text-white p-5 hover:bg-[#503590] transition"
           >
             <div className="text-2xl mb-2">🎯</div>
             <div className="font-semibold text-sm">오늘의 미션 하러 가기 →</div>
           </Link>
           <Link
             href="/contents"
-            className="bg-white border border-gray-100 rounded-2xl p-5 hover:border-indigo-200 hover:shadow-sm transition"
+            className={`${CARD} p-5 hover:bg-white/25 transition`}
           >
             <div className="text-2xl mb-2">📰</div>
-            <div className="font-semibold text-sm text-gray-800">내 레벨 콘텐츠 보기 →</div>
+            <div className="font-semibold text-sm text-[#2a2035]">내 레벨 콘텐츠 보기 →</div>
           </Link>
           <Link
             href="/diagnosis"
-            className="bg-white border border-gray-100 rounded-2xl p-5 hover:border-indigo-200 hover:shadow-sm transition"
+            className={`${CARD} p-5 hover:bg-white/25 transition`}
           >
             <div className="text-2xl mb-2">🔍</div>
-            <div className="font-semibold text-sm text-gray-800">문해력 재진단 →</div>
+            <div className="font-semibold text-sm text-[#2a2035]">문해력 재진단 →</div>
           </Link>
         </div>
       </div>

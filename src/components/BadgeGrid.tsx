@@ -27,8 +27,8 @@ export default function BadgeGrid({ badges }: BadgeGridProps) {
   const earnedMap = new Map(badges.map((b) => [b.badge_type, b.earned_at]))
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6">
-      <h3 className="font-semibold text-gray-800 mb-4">획득한 배지</h3>
+    <div className="rounded-3xl border border-white/50 bg-white/15 backdrop-blur-xl p-6">
+      <h3 className="font-semibold text-[#2a2035] mb-4">획득한 배지</h3>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {ALL_BADGE_TYPES.map((type) => {
           const def = BADGE_DEFS[type]
@@ -38,28 +38,28 @@ export default function BadgeGrid({ badges }: BadgeGridProps) {
           return (
             <div
               key={type}
-              className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-all
+              className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all
                 ${earned
-                  ? 'border-indigo-200 bg-indigo-50 shadow-md shadow-indigo-100'
-                  : 'border-gray-100 bg-gray-50'
+                  ? 'border-[#c0a8e0] bg-white/30 shadow-md shadow-[#6040a0]/15'
+                  : 'border-white/40 bg-white/10'
                 }`}
             >
               <div
                 className={`text-4xl transition-all
-                  ${earned ? 'drop-shadow-[0_0_8px_rgba(99,102,241,0.6)]' : 'grayscale opacity-30'}`}
+                  ${earned ? 'drop-shadow-[0_0_8px_rgba(96,64,160,0.5)]' : 'grayscale opacity-30'}`}
               >
                 {earned ? def.icon : '🔒'}
               </div>
               <span
                 className={`text-xs font-medium text-center leading-tight
-                  ${earned ? 'text-indigo-700' : 'text-gray-400'}`}
+                  ${earned ? 'text-[#6040a0]' : 'text-[#2a2035]/50'}`}
               >
                 {def.label}
               </span>
               {earned && earnedAt ? (
-                <span className="text-[10px] text-gray-400">{formatDate(earnedAt)}</span>
+                <span className="text-[10px] text-[#2a2035]/50">{formatDate(earnedAt)}</span>
               ) : (
-                <span className="text-[10px] text-gray-300">미획득</span>
+                <span className="text-[10px] text-[#2a2035]/40">미획득</span>
               )}
             </div>
           )
