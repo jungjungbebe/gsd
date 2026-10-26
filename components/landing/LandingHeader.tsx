@@ -55,7 +55,7 @@ export default function LandingHeader() {
       >
         {/* 좌측: Log in + Start Now */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Link href="/tone-check" style={{
+          <Link href="/login" style={{
             position: 'relative',
             fontSize: 14,
             fontWeight: 400,
@@ -286,7 +286,7 @@ export default function LandingHeader() {
             ))}
             <div style={{ position: 'relative', zIndex: 1, height: 1, background: 'rgba(255,255,255,0.1)', margin: '6px 0' }} />
             <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: 8 }}>
-              <Link href="/tone-check" onClick={() => setMenuOpen(false)}
+              <Link href="/login" onClick={() => setMenuOpen(false)}
                 style={{
                   flex: 1, fontSize: 15, fontWeight: 400, color: 'var(--text-primary)',
                   textDecoration: 'none', padding: '13px 0', borderRadius: 14,
