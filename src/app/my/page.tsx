@@ -3,7 +3,16 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { getPatternRecords, getPlaybookRecords, type ToneCheckPlaybookRecord } from '@/lib/tutone-records'
+import {
+  getPatternRecords,
+  getPlaybookRecords,
+  getScrapRecords,
+  removeScrapRecord,
+  getWritingRecords,
+  type ToneCheckPlaybookRecord,
+  type ToneCheckScrapRecord,
+  type WritingRecord,
+} from '@/lib/tutone-records'
 import { useScopeReady } from '@/lib/tutone-scope'
 import styles from './my.module.css'
 
@@ -17,8 +26,8 @@ type TabKey = typeof TABS[number]['key']
 
 const EMPTY_STATES: Record<TabKey, { icon: string; text: string; btnLabel: string; btnHref: string }> = {
   saved: { icon: '💾', text: '저장한 대응이 없어요.\n메시지를 분석하고 저장해보세요', btnLabel: '톤 체크하러 가기', btnHref: '/tone-check' },
-  scrap: { icon: '⭐', text: '찜한 표현 기능은 준비 중이에요.\n조금만 기다려주세요', btnLabel: '', btnHref: '' },
-  archive: { icon: '✍️', text: '필사 기록 기능은 준비 중이에요.\n조금만 기다려주세요', btnLabel: '', btnHref: '' },
+  scrap: { icon: '⭐', text: '찜한 표현이 없어요.\n톤 체크 결과에서 ☆ 찜하기를 눌러보세요', btnLabel: '톤 체크하러 가기', btnHref: '/tone-check' },
+  archive: { icon: '✍️', text: '필사 기록이 없어요.\n필사 스팟 미션을 완료해보세요', btnLabel: '필사 미션 시작', btnHref: '/missions' },
 }
 
 function timeAgo(dateStr: string): string {
@@ -36,6 +45,8 @@ export default function MyPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('saved')
   const [translations, setTranslations] = useState<ToneCheckPlaybookRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const [scraps, setScraps] = useState<ToneCheckScrapRecord[]>([])
+  const [writings, setWritings] = useState<WritingRecord[]>([])
   const [user, setUser] = useState<{ email?: string; user_metadata?: { nickname?: string } } | null>(null)
 
   useEffect(() => {
@@ -59,6 +70,8 @@ export default function MyPage() {
     if (scopeReady) {
       setTranslateCount(getPatternRecords().length)
       setTranslations(getPlaybookRecords())
+      setScraps(getScrapRecords())
+      setWritings(getWritingRecords())
     }
   }, [scopeReady])
 
@@ -166,6 +179,43 @@ export default function MyPage() {
                 </div>
                 <div className={styles.savedMeta}>
                   <span>{t.situationCategory} · {t.direction}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : activeTab === 'scrap' && scraps.length > 0 ? (
+          <div className={styles.savedList}>
+            {scraps.map((t) => (
+              <div key={t.id} className={styles.savedCard}>
+                <div className={styles.savedTop}>
+                  <span className={styles.savedInput}>{t.replyText}</span>
+                  <span className={styles.savedTime}>{timeAgo(t.date)}</span>
+                </div>
+                <div className={styles.savedMeta}>
+                  <span>{t.situationCategory} · {t.direction}</span>
+                  <button
+                    onClick={() => {
+                      removeScrapRecord(t.id)
+                      setScraps(getScrapRecords())
+                    }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 12, textDecoration: 'underline', cursor: 'pointer' }}
+                  >
+                    찜 해제
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : activeTab === 'archive' && writings.length > 0 ? (
+          <div className={styles.savedList}>
+            {writings.map((t) => (
+              <div key={t.id} className={styles.savedCard}>
+                <div className={styles.savedTop}>
+                  <span className={styles.savedInput}>{t.sentence}</span>
+                  <span className={styles.savedTime}>{timeAgo(t.date)}</span>
+                </div>
+                <div className={styles.savedMeta}>
+                  <span>{t.theme} · {t.spot}</span>
                 </div>
               </div>
             ))}

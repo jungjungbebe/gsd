@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { addPatternRecord, addPlaybookRecord } from '@/lib/tutone-records'
+import { addPatternRecord, addPlaybookRecord, addScrapRecord, getScrapRecords, removeScrapRecord, type ToneCheckScrapRecord } from '@/lib/tutone-records'
 import { createPortal } from 'react-dom'
 import { getScope, scopedKey, useScopeReady } from '@/lib/tutone-scope'
 
@@ -147,6 +147,10 @@ export default function ToneCheckFlow() {
   const [patternCount, setPatternCount] = useState(0)
   const [playbookCount, setPlaybookCount] = useState(0)
   const scopeReady = useScopeReady()
+  const [scrapList, setScrapList] = useState<ToneCheckScrapRecord[]>([])
+  useEffect(() => {
+    if (scopeReady) setScrapList(getScrapRecords())
+  }, [scopeReady])
   useEffect(() => {
     if (!scopeReady) return
     try {
@@ -237,6 +241,23 @@ export default function ToneCheckFlow() {
   const activeReply = selectedAltId
     ? result?.alternatives.find((a) => a.id === selectedAltId)?.reply ?? result?.response.reply
     : result?.response.reply
+
+  function handleToggleScrap() {
+    if (!activeReply) return
+    const existing = scrapList.filter((r) => r.replyText === activeReply)
+    if (existing.length > 0) {
+      existing.forEach((r) => removeScrapRecord(r.id))
+    } else {
+      const alt = selectedAltId ? result?.alternatives.find((a) => a.id === selectedAltId) : null
+      addScrapRecord({
+        originalText: submittedText,
+        situationCategory: result?.tags?.[0] || '기타 요청',
+        direction: alt?.label || '추천 대응',
+        replyText: activeReply,
+      })
+    }
+    setScrapList(getScrapRecords())
+  }
 
   async function handleCopy() {
     if (!activeReply) return
@@ -780,13 +801,22 @@ export default function ToneCheckFlow() {
                 <span className="text-[13px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
                   &ldquo;{activeReply}&rdquo;
                 </span>
-                <button
-                  onClick={handleCopy}
-                  className="self-end text-white text-[12px] font-bold px-3.5 py-2"
-                  style={{ background: 'var(--text-primary)', borderRadius: 10 }}
-                >
-                  {copied ? '복사됨 ✓' : '복사하기 ↗'}
-                </button>
+                <div className="self-end flex gap-2">
+                  <button
+                    onClick={handleToggleScrap}
+                    className="text-[12px] font-bold px-3.5 py-2"
+                    style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)', borderRadius: 10 }}
+                  >
+                    {scrapList.some((r) => r.replyText === activeReply) ? '★ 찜됨' : '☆ 찜하기'}
+                  </button>
+                  <button
+                    onClick={handleCopy}
+                    className="text-white text-[12px] font-bold px-3.5 py-2"
+                    style={{ background: 'var(--text-primary)', borderRadius: 10 }}
+                  >
+                    {copied ? '복사됨 ✓' : '복사하기 ↗'}
+                  </button>
+                </div>
               </div>
 
               <div className="flex flex-col gap-2">

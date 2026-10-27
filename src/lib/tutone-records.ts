@@ -37,7 +37,31 @@ const PATTERN_COUNT_KEY = 'tutone_pattern_count'
 const PLAYBOOK_COUNT_KEY = 'tutone_playbook_count'
 const PATTERN_TABLE = 'tutone_pattern_records'
 const PLAYBOOK_TABLE = 'tutone_playbook_records'
+const SCRAP_RECORDS_KEY = 'tutone_scrap_records'
+const SCRAP_TABLE = 'tutone_scrap_records'
+const WRITING_RECORDS_KEY = 'tutone_writing_records'
+const WRITING_TABLE = 'tutone_writing_records'
 const MAX_RECORDS = 100
+
+// 찜한 표현 = 저장한 답장과 같은 모양
+export type ToneCheckScrapRecord = ToneCheckPlaybookRecord
+
+// 필사 기록 (필사 스팟 미션을 완료한 기록)
+export interface WritingRecord {
+  id: string
+  date: string
+  theme: string
+  spot: string
+  sentence: string
+}
+
+interface WritingRow {
+  id: string
+  created_at: string
+  theme: string
+  spot: string
+  sentence: string
+}
 
 function readRecords<T>(key: string): T[] {
   try {
@@ -136,11 +160,58 @@ export function addPlaybookRecord(input: Omit<ToneCheckPlaybookRecord, 'id' | 'd
   pushToServer(PLAYBOOK_TABLE, playbookToRow(rec))
 }
 
+function writingToRow(r: WritingRecord) {
+  return { id: r.id, created_at: r.date, theme: r.theme, spot: r.spot, sentence: r.sentence }
+}
+
+function rowToWriting(row: WritingRow): WritingRecord {
+  return { id: row.id, date: new Date(row.created_at).toISOString(), theme: row.theme, spot: row.spot, sentence: row.sentence }
+}
+
+export function getScrapRecords(): ToneCheckScrapRecord[] {
+  return readRecords<ToneCheckScrapRecord>(SCRAP_RECORDS_KEY)
+}
+
+export function addScrapRecord(input: Omit<ToneCheckScrapRecord, 'id' | 'date'>) {
+  const list = getScrapRecords()
+  const rec: ToneCheckScrapRecord = { id: makeId(), date: new Date().toISOString(), ...input }
+  list.unshift(rec)
+  writeRecords(SCRAP_RECORDS_KEY, list)
+  pushToServer(SCRAP_TABLE, playbookToRow(rec))
+}
+
+export function removeScrapRecord(id: string) {
+  writeRecords(SCRAP_RECORDS_KEY, getScrapRecords().filter((r) => r.id !== id))
+  if (getScope() === 'guest') return
+  try {
+    createClient()
+      .from(SCRAP_TABLE)
+      .delete()
+      .eq('id', id)
+      .then(
+        () => {},
+        () => {},
+      )
+  } catch {}
+}
+
+export function getWritingRecords(): WritingRecord[] {
+  return readRecords<WritingRecord>(WRITING_RECORDS_KEY)
+}
+
+export function addWritingRecord(input: Omit<WritingRecord, 'id' | 'date'>) {
+  const list = getWritingRecords()
+  const rec: WritingRecord = { id: makeId(), date: new Date().toISOString(), ...input }
+  list.unshift(rec)
+  writeRecords(WRITING_RECORDS_KEY, list)
+  pushToServer(WRITING_TABLE, writingToRow(rec))
+}
+
 async function syncTable<R extends { id: string }, T extends { id: string; date: string }>(opts: {
   table: string
   select: string
   recordsKey: string
-  countKey: string
+  countKey?: string
   fromRow: (row: R) => T
   toRow: (r: T) => Record<string, unknown>
 }) {
@@ -156,9 +227,11 @@ async function syncTable<R extends { id: string }, T extends { id: string; date:
   const local = readRecords<T>(opts.recordsKey)
   const merged = mergeById(local, server)
   writeRecords(opts.recordsKey, merged)
-  try {
-    localStorage.setItem(scopedKey(opts.countKey), String(merged.length))
-  } catch {}
+  if (opts.countKey) {
+    try {
+      localStorage.setItem(scopedKey(opts.countKey), String(merged.length))
+    } catch {}
+  }
   const serverIds = new Set(server.map((r) => r.id))
   const missing = local.filter((r) => !serverIds.has(r.id))
   if (missing.length > 0) {
@@ -186,6 +259,20 @@ export async function syncRecords(): Promise<void> {
         countKey: PLAYBOOK_COUNT_KEY,
         fromRow: rowToPlaybook,
         toRow: playbookToRow,
+      }),
+      syncTable<PlaybookRow, ToneCheckScrapRecord>({
+        table: SCRAP_TABLE,
+        select: 'id, created_at, original_text, situation_category, direction, reply_text',
+        recordsKey: SCRAP_RECORDS_KEY,
+        fromRow: rowToPlaybook,
+        toRow: playbookToRow,
+      }),
+      syncTable<WritingRow, WritingRecord>({
+        table: WRITING_TABLE,
+        select: 'id, created_at, theme, spot, sentence',
+        recordsKey: WRITING_RECORDS_KEY,
+        fromRow: rowToWriting,
+        toRow: writingToRow,
       }),
     ])
   } catch {}

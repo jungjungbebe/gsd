@@ -10,6 +10,7 @@ import {
   saveThemeRecord,
   loadArchiveCount,
 } from '@/lib/themeRecord'
+import { addWritingRecord } from '@/lib/tutone-records'
 
 declare global {
   interface Window {
@@ -168,6 +169,11 @@ export default function ThemeCycle({
       const next: ThemeRecord = { ...record, write: true, writePhoto: reader.result as string }
       setRecord(next)
       saveThemeRecord(next)
+      addWritingRecord({
+        theme: `${THEME.korean}(${THEME.hanja})`,
+        spot: `${THEME.spot.area} ${THEME.spot.name}`,
+        sentence: THEME.spot.sentence,
+      })
       setStage('collect')
     }
     reader.readAsDataURL(file)
