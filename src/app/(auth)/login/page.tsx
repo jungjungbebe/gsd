@@ -2,12 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import styles from '../auth.module.css'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -42,7 +40,8 @@ export default function LoginPage() {
         return
       }
 
-      router.push('/tone-check')
+      // 서버 기록을 불러온 상태로 홈이 열리도록 화면을 통째로 다시 불러옴
+      window.location.href = '/tone-check'
     } catch {
       setError('로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
     } finally {

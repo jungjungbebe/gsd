@@ -37,6 +37,11 @@ export function resolveScope(): Promise<void> {
         supabase.auth.onAuthStateChange((_event, session) => {
           storeScope(session?.user.id ?? null)
         })
+        if (data.session) {
+          // 로그인 상태면 서버 기록과 이 기기의 기록을 합친 뒤에 화면이 읽도록 함
+          const { syncRecords } = await import('@/lib/tutone-records')
+          await syncRecords()
+        }
       } catch {}
       resolved = true
     })()
