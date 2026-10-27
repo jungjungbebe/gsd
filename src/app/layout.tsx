@@ -5,7 +5,7 @@ import PageTransition from '@/components/PageTransition'
 import AutoLogout from '@/components/AutoLogout'
 import { Analytics } from '@vercel/analytics/next'
 export const metadata: Metadata = {
-  title: '문해력UP — 사회초년생을 위한 비즈니스 문해력 플랫폼',
+  title: '투톤 — 비즈니스 한국어 톤 체크',
   description: '진단부터 학습까지, 실무에서 바로 쓰는 문해력을 키워보세요.',
 }
 

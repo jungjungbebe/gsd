@@ -162,7 +162,7 @@ export default function SharePage() {
     ctx.fillStyle = `${theme.accent}60`
     ctx.font = '500 24px "Apple SD Gothic Neo", "Noto Sans KR", sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText('문해력UP  ·  오늘도 한 뼘 성장 📚', W / 2, H - 80)
+    ctx.fillText('투톤  ·  오늘도 한 뼘 성장 📚', W / 2, H - 80)
 
     // Watermark line
     ctx.fillStyle = `${theme.accent}30`
@@ -178,7 +178,7 @@ export default function SharePage() {
     const canvas = canvasRef.current
     if (!canvas) return
     const link = document.createElement('a')
-    link.download = `문해력UP_${todayStr.replace(/\./g, '')}.png`
+    link.download = `투톤_${todayStr.replace(/\./g, '')}.png`
     link.href = canvas.toDataURL('image/png')
     link.click()
     setDownloaded(true)
@@ -196,7 +196,7 @@ export default function SharePage() {
       if (!blob) return
 
       if (navigator.share) {
-        const file = new File([blob], `문해력UP_${todayStr.replace(/\./g, '')}.png`, {
+        const file = new File([blob], `투톤_${todayStr.replace(/\./g, '')}.png`, {
           type: 'image/png',
         })
         await navigator.share({
