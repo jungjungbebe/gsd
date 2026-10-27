@@ -6,6 +6,8 @@ import { diagnosisQuestions, calculateLevel } from '@/lib/diagnosis'
 
 type QuizState = 'quiz' | 'result'
 
+const GLASS = 'rounded-3xl border border-white/50 bg-white/15 backdrop-blur-xl'
+
 export default function DiagnosisPage() {
   const [state, setState] = useState<QuizState>('quiz')
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -16,9 +18,6 @@ export default function DiagnosisPage() {
   const question = diagnosisQuestions[currentIndex]
   const totalQuestions = diagnosisQuestions.length
   const progressPercent = ((currentIndex) / totalQuestions) * 100
-
-  const correctCount = answers.filter(Boolean).length
-  const result = calculateLevel(correctCount)
 
   function handleOptionSelect(index: number) {
     if (selectedOption !== null) return
@@ -54,23 +53,24 @@ export default function DiagnosisPage() {
 
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-4 pt-12 pb-32">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center gap-6">
-          <h2 className="text-2xl font-bold text-gray-800">진단 완료!</h2>
+        <div className={`w-full max-w-md ${GLASS} p-8 flex flex-col items-center gap-6`}>
+          <p className="text-[11px] font-semibold tracking-[0.2em] text-[#6040a0]">RESULT</p>
+          <h2 className="text-2xl font-bold text-[#2a2035]">진단 완료!</h2>
 
           {/* Level Badge */}
-          <div className="flex flex-col items-center gap-2">
-            <div className="w-32 h-32 rounded-full bg-indigo-600 flex items-center justify-center shadow-md">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-32 h-32 rounded-full bg-[#6040a0] flex items-center justify-center shadow-lg shadow-[#6040a0]/30">
               <span className="text-white text-3xl font-extrabold">{finalResult.label}</span>
             </div>
-            <p className="text-lg font-semibold text-indigo-700 text-center">{finalResult.description}</p>
+            <p className="text-lg font-semibold text-[#6040a0] text-center">{finalResult.description}</p>
           </div>
 
           {/* Score */}
-          <div className="bg-indigo-50 rounded-xl px-8 py-4 text-center">
-            <p className="text-sm text-indigo-500 font-medium mb-1">내 점수</p>
-            <p className="text-4xl font-extrabold text-indigo-700">
+          <div className="rounded-2xl border border-white/50 bg-white/20 px-8 py-4 text-center">
+            <p className="text-sm text-[#2a2035]/60 font-medium mb-1">내 점수</p>
+            <p className="text-4xl font-extrabold text-[#6040a0]">
               {finalCorrect}
-              <span className="text-2xl font-semibold text-indigo-400"> / {totalQuestions}</span>
+              <span className="text-2xl font-semibold text-[#6040a0]/50"> / {totalQuestions}</span>
             </p>
           </div>
 
@@ -80,7 +80,7 @@ export default function DiagnosisPage() {
               <div
                 key={i}
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white ${
-                  correct ? 'bg-emerald-500' : 'bg-red-400'
+                  correct ? 'bg-emerald-500/80' : 'bg-rose-400/80'
                 }`}
               >
                 {i + 1}
@@ -92,13 +92,13 @@ export default function DiagnosisPage() {
           <div className="w-full flex flex-col gap-3 mt-2">
             <Link
               href="/signup"
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-center py-3 px-6 rounded-xl transition-colors"
+              className="w-full bg-[#6040a0] hover:bg-[#503590] text-white font-semibold text-center py-3 px-6 rounded-2xl transition-colors"
             >
               회원가입하고 내 레벨에 맞는 콘텐츠 보기
             </Link>
             <button
               onClick={handleReset}
-              className="w-full border border-indigo-300 text-indigo-600 hover:bg-indigo-50 font-semibold py-3 px-6 rounded-xl transition-colors"
+              className="w-full border border-white/60 bg-white/20 text-[#6040a0] hover:bg-white/40 font-semibold py-3 px-6 rounded-2xl transition-colors"
             >
               다시 진단하기
             </button>
@@ -113,27 +113,28 @@ export default function DiagnosisPage() {
       <div className="w-full max-w-lg">
         {/* Header */}
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-gray-800 mb-1">문해력 진단 테스트</h1>
-          <p className="text-sm text-gray-500">비즈니스 한국어 이해 능력을 확인해보세요</p>
+          <p className="text-[11px] font-semibold tracking-[0.2em] text-[#6040a0] mb-2">DIAGNOSIS</p>
+          <h1 className="text-2xl font-bold text-[#2a2035] mb-1">문해력 진단 테스트</h1>
+          <p className="text-sm text-[#2a2035]/60">비즈니스 한국어 이해 능력을 확인해보세요</p>
         </div>
 
         {/* Progress bar */}
         <div className="mb-6">
-          <div className="flex justify-between text-xs text-gray-500 mb-1">
+          <div className="flex justify-between text-xs text-[#2a2035]/60 mb-1">
             <span>질문 {currentIndex + 1} / {totalQuestions}</span>
             <span>{Math.round(progressPercent)}%</span>
           </div>
-          <div className="w-full h-2 bg-indigo-100 rounded-full overflow-hidden">
+          <div className="w-full h-2 bg-white/30 rounded-full overflow-hidden">
             <div
-              className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+              className="h-full bg-[#6040a0] rounded-full transition-all duration-500"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
         </div>
 
         {/* Question card */}
-        <div className="bg-white rounded-2xl shadow-md p-6 mb-4">
-          <p className="text-base font-semibold text-gray-800 leading-relaxed mb-6">
+        <div className={`${GLASS} p-6 mb-4`}>
+          <p className="text-base font-semibold text-[#2a2035] leading-relaxed mb-6">
             {question.question}
           </p>
 
@@ -141,15 +142,15 @@ export default function DiagnosisPage() {
           <div className="flex flex-col gap-3">
             {question.options.map((option, index) => {
               let optionStyle =
-                'border border-gray-200 text-gray-700 hover:border-indigo-400 hover:bg-indigo-50'
+                'border border-white/50 bg-white/20 text-[#2a2035] hover:border-[#6040a0]/60 hover:bg-white/40'
 
               if (selectedOption !== null) {
                 if (index === question.correctIndex) {
-                  optionStyle = 'border-2 border-emerald-500 bg-emerald-50 text-emerald-700'
+                  optionStyle = 'border-2 border-emerald-500/70 bg-emerald-100/50 text-emerald-800'
                 } else if (index === selectedOption) {
-                  optionStyle = 'border-2 border-red-400 bg-red-50 text-red-700'
+                  optionStyle = 'border-2 border-rose-400/70 bg-rose-100/50 text-rose-800'
                 } else {
-                  optionStyle = 'border border-gray-200 text-gray-400 opacity-60'
+                  optionStyle = 'border border-white/40 bg-white/10 text-[#2a2035]/40 opacity-60'
                 }
               }
 
@@ -158,9 +159,9 @@ export default function DiagnosisPage() {
                   key={index}
                   onClick={() => handleOptionSelect(index)}
                   disabled={selectedOption !== null}
-                  className={`w-full text-left px-4 py-3 rounded-xl font-medium transition-all duration-200 cursor-pointer disabled:cursor-default ${optionStyle}`}
+                  className={`w-full text-left px-4 py-3 rounded-2xl font-medium transition-all duration-200 cursor-pointer disabled:cursor-default ${optionStyle}`}
                 >
-                  <span className="mr-2 text-indigo-400 font-bold">
+                  <span className="mr-2 text-[#6040a0] font-bold">
                     {['①', '②', '③', '④'][index]}
                   </span>
                   {option}
@@ -173,10 +174,10 @@ export default function DiagnosisPage() {
         {/* Explanation */}
         {showExplanation && (
           <div
-            className={`rounded-xl px-5 py-4 mb-4 text-sm leading-relaxed transition-all duration-300 ${
+            className={`rounded-2xl px-5 py-4 mb-4 text-sm leading-relaxed backdrop-blur-xl transition-all duration-300 ${
               selectedOption === question.correctIndex
-                ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
-                : 'bg-red-50 border border-red-200 text-red-800'
+                ? 'bg-emerald-100/50 border border-emerald-300/60 text-emerald-900'
+                : 'bg-rose-100/50 border border-rose-300/60 text-rose-900'
             }`}
           >
             <p className="font-semibold mb-1">
@@ -190,7 +191,7 @@ export default function DiagnosisPage() {
         {showExplanation && (
           <button
             onClick={handleNext}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
+            className="w-full bg-[#6040a0] hover:bg-[#503590] text-white font-semibold py-3 px-6 rounded-2xl transition-colors"
           >
             {currentIndex + 1 >= totalQuestions ? '결과 보기' : '다음 문제'}
           </button>
