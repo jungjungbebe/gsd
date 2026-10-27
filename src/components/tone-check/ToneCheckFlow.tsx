@@ -272,17 +272,6 @@ export default function ToneCheckFlow() {
     if (saving || saved) return
     setSaving(true)
     try {
-      const { createClient } = await import('@/lib/supabase/client')
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('tone_checks').insert({
-        user_id: user?.id ?? null,
-        input_text: submittedText,
-        interpretation: result?.interpretation ?? '',
-        counterpart: counterpart,
-        selected_alternative: selectedAltId,
-        is_sample: result?.isSample ?? true,
-      })
       setSaved(true)
       bumpPlaybookCount()
       savePlaybookRecord()
@@ -347,10 +336,10 @@ export default function ToneCheckFlow() {
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em', color: 'var(--text-purple)', marginBottom: 10 }}>SAVE</div>
             <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>이 대응을 저장할까요?</div>
             <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-secondary)', margin: '0 0 6px' }}>
-              가입하면 기록이 내 계정으로 나뉘어 보관돼요. 가입 없이 저장하면 로그인 전 기록으로 이 기기에 남아요.
+              가입하면 기록이 내 계정에 보관돼요. 가입 없이 저장하면 이 기기에만 남고, 나중에 가입해도 옮겨지지 않아요.
             </p>
             <p style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)', margin: '0 0 20px' }}>
-              기기 간 동기화는 준비 중이에요.
+              로그인하면 다른 기기에서도 이어서 볼 수 있어요.
             </p>
             <a
               href="/signup"

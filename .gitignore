@@ -3,3 +3,8 @@ node_modules
 .vercel
 .env.local
 .env*.local
+
+.omc/
+supabase/.temp/
+.DS_Store
+*.bak

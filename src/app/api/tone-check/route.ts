@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server'
+import { clientIp, rateLimit } from '@/lib/rate-limit'
+
+const MAX_TEXT = 1000
 
 interface ToneCheckResult {
   interpretation: string
@@ -79,9 +82,15 @@ function pickFallback(text: string): Omit<ToneCheckResult, 'isSample' | 'counter
 
 export async function POST(req: Request) {
   try {
+    if (!rateLimit('tone:' + clientIp(req), 10)) {
+      return NextResponse.json({ error: '요청이 너무 많아요. 잠시 후 다시 시도해 주세요.' }, { status: 429 })
+    }
     const { text, counterpart } = await req.json()
     if (!text || typeof text !== 'string' || !text.trim()) {
       return NextResponse.json({ error: '메시지를 입력해 주세요.' }, { status: 400 })
+    }
+    if (text.length > MAX_TEXT) {
+      return NextResponse.json({ error: `메시지는 ${MAX_TEXT}자 이내로 입력해 주세요.` }, { status: 400 })
     }
     const counterpartLabel: string | undefined =
       typeof counterpart === 'string' && ['동료', '상사', '클라이언트'].includes(counterpart)

@@ -4,15 +4,24 @@ import BottomNav from '@/components/BottomNav'
 import PageTransition from '@/components/PageTransition'
 import AutoLogout from '@/components/AutoLogout'
 import { Analytics } from '@vercel/analytics/next'
+import SiteFooter from '@/components/SiteFooter'
 export const metadata: Metadata = {
+  metadataBase: new URL('https://gsd-mauve.vercel.app'),
   title: '투톤 — 비즈니스 한국어 톤 체크',
-  description: '진단부터 학습까지, 실무에서 바로 쓰는 문해력을 키워보세요.',
+  description: '받은 메시지의 뉘앙스를 읽고, 상황에 맞는 답장까지 한 번에. 비즈니스 한국어 톤 체크 투톤.',
+  openGraph: {
+    title: '투톤 — 비즈니스 한국어 톤 체크',
+    description: '받은 메시지의 뉘앙스를 읽고, 상황에 맞는 답장까지 한 번에.',
+    siteName: '투톤',
+    locale: 'ko_KR',
+    type: 'website',
+  },
+  twitter: { card: 'summary_large_image', title: '투톤 — 비즈니스 한국어 톤 체크' },
 }
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: 'cover',
 }
 
@@ -30,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="no-scrollbar" style={{ fontFamily: "'Pretendard Variable', 'DM Sans', -apple-system, sans-serif", color: 'var(--text-primary)' }}>
         <PageTransition>{children}</PageTransition>
+        <SiteFooter />
         <BottomNav />
         <AutoLogout />
         <Analytics />

@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd \\\"/Users/seojung/데스크탑 2/gsd\\\" && git push -u origin main 2>&1\",\"timeout\":60000,\"description\":\"Push to GitHub\"}",
-  "error": "Exit code 128\nHost key verification failed.\r\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.\n[rerun: b169]",
-  "timestamp": "2026-04-14T13:29:24.864Z",
-  "retry_count": 1
-}

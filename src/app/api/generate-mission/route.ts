@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { clientIp, rateLimit } from '@/lib/rate-limit'
 
 const FALLBACK_MISSIONS = [
   { sentence: '번거로우시겠지만, 한 번만 더 검토해 주시면 감사하겠습니다.', category: '쿠션어' as const },
@@ -12,7 +13,10 @@ const FALLBACK_MISSIONS = [
   { sentence: '아래 안건에 대하여 귀 부서의 협조를 요청드립니다.', category: '공문서' as const },
 ]
 
-export async function POST() {
+export async function POST(req: Request) {
+  if (!rateLimit('mission:' + clientIp(req), 3)) {
+    return NextResponse.json({ error: '요청이 너무 많아요. 잠시 후 다시 시도해 주세요.' }, { status: 429 })
+  }
   try {
     let sentence: string
     let category: '쿠션어' | '업무메일' | '공문서' | '일반'

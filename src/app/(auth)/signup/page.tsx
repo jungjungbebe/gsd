@@ -137,6 +137,10 @@ export default function SignupPage() {
           </form>
 
           <p className={styles.footer}>
+            가입하면 <Link href="/privacy" className={styles.link}>개인정보처리방침</Link>에 동의한 것으로 봐요.
+          </p>
+
+          <p className={styles.footer}>
             이미 계정이 있으신가요?{' '}
             <Link href="/login" className={styles.link}>로그인</Link>
           </p>
