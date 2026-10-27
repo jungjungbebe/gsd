@@ -3,34 +3,22 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { getPatternRecords } from '@/lib/tutone-records'
+import { getPatternRecords, getPlaybookRecords, type ToneCheckPlaybookRecord } from '@/lib/tutone-records'
 import { useScopeReady } from '@/lib/tutone-scope'
 import styles from './my.module.css'
 
 const TABS = [
-  { key: 'saved', label: '저장한 번역' },
+  { key: 'saved', label: '저장한 대응' },
   { key: 'scrap', label: '찜한 표현' },
   { key: 'archive', label: '필사 기록' },
 ] as const
 
 type TabKey = typeof TABS[number]['key']
 
-interface SavedTranslation {
-  id: string
-  input_text: string
-  output_cushion: string | null
-  output_practical: string | null
-  relation: string
-  purpose: string
-  formality: string
-  score: number
-  created_at: string
-}
-
 const EMPTY_STATES: Record<TabKey, { icon: string; text: string; btnLabel: string; btnHref: string }> = {
-  saved: { icon: '💾', text: '저장한 번역이 없어요.\n번역기를 사용해보세요', btnLabel: '번역기로 이동', btnHref: '/tone-check' },
-  scrap: { icon: '⭐', text: '찜한 표현이 없어요.\n마음에 드는 표현을 저장해보세요', btnLabel: '표현 둘러보기', btnHref: '/tone-check' },
-  archive: { icon: '✍️', text: '필사 기록이 없어요.\n오늘의 필사를 시작해보세요', btnLabel: '필사 미션 시작', btnHref: '/missions' },
+  saved: { icon: '💾', text: '저장한 대응이 없어요.\n메시지를 분석하고 저장해보세요', btnLabel: '톤 체크하러 가기', btnHref: '/tone-check' },
+  scrap: { icon: '⭐', text: '찜한 표현 기능은 준비 중이에요.\n조금만 기다려주세요', btnLabel: '', btnHref: '' },
+  archive: { icon: '✍️', text: '필사 기록 기능은 준비 중이에요.\n조금만 기다려주세요', btnLabel: '', btnHref: '' },
 }
 
 function timeAgo(dateStr: string): string {
@@ -46,7 +34,7 @@ function timeAgo(dateStr: string): string {
 
 export default function MyPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('saved')
-  const [translations, setTranslations] = useState<SavedTranslation[]>([])
+  const [translations, setTranslations] = useState<ToneCheckPlaybookRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<{ email?: string; user_metadata?: { nickname?: string } } | null>(null)
 
@@ -58,12 +46,6 @@ export default function MyPage() {
           const { data: auth } = await supabase.auth.getUser()
           setUser(auth?.user ?? null)
         } catch {}
-        const { data } = await supabase
-          .from('translations')
-          .select('id, input_text, output_cushion, output_practical, relation, purpose, formality, score, created_at')
-          .order('created_at', { ascending: false })
-          .limit(20)
-        if (data) setTranslations(data)
       } catch {}
       setLoading(false)
     }
@@ -74,7 +56,10 @@ export default function MyPage() {
   const scopeReady = useScopeReady()
   const [translateCount, setTranslateCount] = useState(0)
   useEffect(() => {
-    if (scopeReady) setTranslateCount(getPatternRecords().length)
+    if (scopeReady) {
+      setTranslateCount(getPatternRecords().length)
+      setTranslations(getPlaybookRecords())
+    }
   }, [scopeReady])
 
   return (
@@ -170,22 +155,17 @@ export default function MyPage() {
             {translations.map((t) => (
               <div key={t.id} className={styles.savedCard}>
                 <div className={styles.savedTop}>
-                  <span className={styles.savedInput}>{t.input_text}</span>
-                  <span className={styles.savedTime}>{timeAgo(t.created_at)}</span>
+                  <span className={styles.savedInput}>{t.originalText}</span>
+                  <span className={styles.savedTime}>{timeAgo(t.date)}</span>
                 </div>
                 <div className={styles.savedResults}>
                   <div className={styles.savedResult}>
-                    <span className={styles.savedLabel}>쿠션</span>
-                    <span className={styles.savedText}>{t.output_cushion || '—'}</span>
-                  </div>
-                  <div className={styles.savedResult}>
-                    <span className={styles.savedLabelBiz}>실무</span>
-                    <span className={styles.savedText}>{t.output_practical || '—'}</span>
+                    <span className={styles.savedLabelBiz}>답장</span>
+                    <span className={styles.savedText}>{t.replyText || '—'}</span>
                   </div>
                 </div>
                 <div className={styles.savedMeta}>
-                  <span>{t.relation} · {t.purpose} · {t.formality}</span>
-                  <span className={styles.savedScore}>스코어 {t.score}</span>
+                  <span>{t.situationCategory} · {t.direction}</span>
                 </div>
               </div>
             ))}
@@ -198,9 +178,11 @@ export default function MyPage() {
           <div className={styles.empty}>
             <span className={styles.emptyIcon}>{empty.icon}</span>
             <p className={styles.emptyText}>{empty.text}</p>
-            <Link href={empty.btnHref} className={styles.emptyBtn}>
-              {empty.btnLabel}
-            </Link>
+            {empty.btnHref && (
+              <Link href={empty.btnHref} className={styles.emptyBtn}>
+                {empty.btnLabel}
+              </Link>
+            )}
           </div>
         )}
       </div>
