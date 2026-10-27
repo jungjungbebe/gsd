@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { getPatternRecords } from '@/lib/tutone-records'
+import { useScopeReady } from '@/lib/tutone-scope'
 import styles from './my.module.css'
 
 const TABS = [
@@ -69,7 +71,11 @@ export default function MyPage() {
   }, [])
 
   const empty = EMPTY_STATES[activeTab]
-  const translateCount = translations.length
+  const scopeReady = useScopeReady()
+  const [translateCount, setTranslateCount] = useState(0)
+  useEffect(() => {
+    if (scopeReady) setTranslateCount(getPatternRecords().length)
+  }, [scopeReady])
 
   return (
     <div className={styles.page}>
@@ -84,7 +90,7 @@ export default function MyPage() {
           <div className={styles.rewardRow}>
             <div className={styles.rewardBadge}>
               <span className={styles.rewardIcon}>✦</span>
-              <span className={styles.rewardText}>{user ? '120 P' : 'GUEST'}</span>
+              <span className={styles.rewardText}>{user ? 'MEMBER' : 'GUEST'}</span>
             </div>
             <button className={styles.settingsBtn}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -105,7 +111,7 @@ export default function MyPage() {
               <span className={styles.userId}>{user ? `@${(user.email ?? 'user').split('@')[0]}` : '기록은 이 기기에 저장돼요'}</span>
             </div>
             {user ? (
-              <Link href="/login" className={styles.editBtn}>프로필 편집</Link>
+              <Link href="/my/profile" className={styles.editBtn}>프로필 편집</Link>
             ) : (
               <Link href="/signup" className={styles.editBtn}>가입하기</Link>
             )}
@@ -113,7 +119,7 @@ export default function MyPage() {
 
           <div className={styles.stats}>
             <div className={styles.statItem}>
-              <span className={styles.statValue}>00:00</span>
+              <span className={styles.statValue}>—</span>
               <span className={styles.statLabel}>학습시간</span>
             </div>
             <div className={styles.statDivider} />
@@ -123,7 +129,7 @@ export default function MyPage() {
             </div>
             <div className={styles.statDivider} />
             <div className={styles.statItem}>
-              <span className={styles.statValue}>{user ? 'Lv.2' : 'Lv.1'}</span>
+              <span className={styles.statValue}>Lv.1</span>
               <span className={styles.statLabel}>문해력 등급</span>
             </div>
           </div>
@@ -131,14 +137,14 @@ export default function MyPage() {
           <div className={styles.levelProgress}>
             <div className={styles.levelHeader}>
               <span className={styles.levelTitle}>어휘 탐험가</span>
-              <span className={styles.levelRange}>{user ? 'Lv.2 → Lv.3' : 'Lv.1 → Lv.2'}</span>
+              <span className={styles.levelRange}>Lv.1 → Lv.2</span>
             </div>
             <div className={styles.progressBar}>
-              <div className={styles.progressFill} style={{ width: user ? '35%' : '0%' }} />
+              <div className={styles.progressFill} style={{ width: '0%' }} />
             </div>
             <div className={styles.levelFooter}>
-              <span className={styles.levelXp}>{user ? '350 / 1,000 XP' : '0 / 1,000 XP'}</span>
-              <span className={styles.levelPercent}>{user ? '35%' : '0%'}</span>
+              <span className={styles.levelXp}>0 / 1,000 XP</span>
+              <span className={styles.levelPercent}>0%</span>
             </div>
           </div>
         </div>

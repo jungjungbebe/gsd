@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import BottomNav from '@/components/BottomNav'
 import PageTransition from '@/components/PageTransition'
+import AutoLogout from '@/components/AutoLogout'
 import { Analytics } from '@vercel/analytics/next'
 export const metadata: Metadata = {
   title: '문해력UP — 사회초년생을 위한 비즈니스 문해력 플랫폼',
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="no-scrollbar" style={{ fontFamily: "'Pretendard Variable', 'DM Sans', -apple-system, sans-serif", color: 'var(--text-primary)' }}>
         <PageTransition>{children}</PageTransition>
         <BottomNav />
+        <AutoLogout />
         <Analytics />
       </body>
     </html>
