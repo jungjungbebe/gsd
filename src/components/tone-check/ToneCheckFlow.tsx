@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { addPatternRecord, addPlaybookRecord } from '@/lib/tutone-records'
-import { scopedKey, useScopeReady } from '@/lib/tutone-scope'
+import { createPortal } from 'react-dom'
+import { getScope, scopedKey, useScopeReady } from '@/lib/tutone-scope'
 
 const TranslatorOrb = dynamic(() => import('@/components/TranslatorOrb'), { ssr: false })
 
@@ -139,6 +140,7 @@ export default function ToneCheckFlow() {
   const [myVote, setMyVote] = useState<'like' | 'dislike' | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [showSavePrompt, setShowSavePrompt] = useState(false)
 
   // 내 패턴 = 체크한 상황 수(TONE CHECK 사용 시 누적) / 내 플레이북 = 실제로 저장한 대응 수(저장 버튼 사용 시 누적)
   // 아직 백엔드 집계가 없어서 브라우저 localStorage에 누적 — 레이아웃/카드 위치는 고정, 숫자만 성장
@@ -256,7 +258,17 @@ export default function ToneCheckFlow() {
     setMyVote(vote)
   }
 
-  async function handleSave() {
+  // 로그인 전이면 가입 안내를 먼저 보여주고, 로그인 상태면 바로 저장
+  function handleSave() {
+    if (saving || saved) return
+    if (getScope() === 'guest') {
+      setShowSavePrompt(true)
+      return
+    }
+    void doSave()
+  }
+
+  async function doSave() {
     if (saving || saved) return
     setSaving(true)
     try {
@@ -320,6 +332,55 @@ export default function ToneCheckFlow() {
     setSaved(false)
   }
 
+  const savePrompt = showSavePrompt
+    ? createPortal(
+        <div
+          onClick={() => setShowSavePrompt(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'rgba(42,32,53,0.35)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 340, padding: 24, borderRadius: 24, background: 'rgba(255,255,255,0.55)', border: '0.5px solid rgba(255,255,255,0.7)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', boxShadow: '0 12px 40px rgba(42,32,53,0.25)', textAlign: 'center' }}
+          >
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em', color: 'var(--text-purple)', marginBottom: 10 }}>SAVE</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>이 대응을 저장할까요?</div>
+            <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-secondary)', margin: '0 0 6px' }}>
+              가입하면 기록이 내 계정으로 나뉘어 보관돼요. 가입 없이 저장하면 로그인 전 기록으로 이 기기에 남아요.
+            </p>
+            <p style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)', margin: '0 0 20px' }}>
+              기기 간 동기화는 준비 중이에요.
+            </p>
+            <a
+              href="/signup"
+              style={{ display: 'block', padding: '14px 0', borderRadius: 14, background: 'var(--purple-500)', color: '#fff', fontSize: 15, fontWeight: 600, textDecoration: 'none', marginBottom: 10 }}
+            >
+              가입하기
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                setShowSavePrompt(false)
+                void doSave()
+              }}
+              style={{ display: 'block', width: '100%', padding: '13px 0', borderRadius: 14, background: 'transparent', border: '1px solid var(--purple-300)', color: 'var(--text-purple)', fontSize: 15, fontWeight: 600, cursor: 'pointer', marginBottom: 6 }}
+            >
+              이 기기에만 저장
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowSavePrompt(false)}
+              style={{ background: 'transparent', border: 'none', padding: '8px 12px', color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer' }}
+            >
+              닫기
+            </button>
+          </div>
+        </div>,
+        document.body,
+      )
+    : null
+
   // 하단 메뉴의 홈을 이미 홈에서 다시 누르면 처음 화면(입력)으로 돌아감
   useEffect(() => {
     function onHome() {
@@ -332,6 +393,7 @@ export default function ToneCheckFlow() {
 
   return (
     <main style={{ minHeight: '100vh', maxWidth: 430, margin: '0 auto', paddingBottom: 100, display: 'flex', flexDirection: 'column' }}>
+      {savePrompt}
       {/* 헤더: /service .header 규격과 동일 (수정 없음) */}
       <FadeIn show={show.header}>
         <header style={{ padding: '48px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
