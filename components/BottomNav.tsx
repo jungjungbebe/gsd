@@ -57,6 +57,12 @@ export default function BottomNav() {
           <Link
             key={tab.id}
             href={tab.href}
+            onClick={() => {
+              // 이미 홈(톤체크)에 있을 때 다시 누르면 처음 입력 화면으로 돌아감
+              if (tab.id === 'home' && pathname === '/tone-check') {
+                window.dispatchEvent(new Event('tutone:home'))
+              }
+            }}
             className={`${styles.tab} ${isActive ? styles.active : ''}`}
           >
             <span className={styles.icon}>{tab.icon}</span>

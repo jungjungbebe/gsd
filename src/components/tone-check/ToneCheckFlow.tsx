@@ -320,6 +320,16 @@ export default function ToneCheckFlow() {
     setSaved(false)
   }
 
+  // 하단 메뉴의 홈을 이미 홈에서 다시 누르면 처음 화면(입력)으로 돌아감
+  useEffect(() => {
+    function onHome() {
+      handleReset()
+      window.scrollTo({ top: 0 })
+    }
+    window.addEventListener('tutone:home', onHome)
+    return () => window.removeEventListener('tutone:home', onHome)
+  }, [])
+
   return (
     <main style={{ minHeight: '100vh', maxWidth: 430, margin: '0 auto', paddingBottom: 100, display: 'flex', flexDirection: 'column' }}>
       {/* 헤더: /service .header 규격과 동일 (수정 없음) */}
