@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getPatternRecords, type ToneCheckPatternRecord } from '@/lib/tutone-records'
+import { useScopeReady } from '@/lib/tutone-scope'
 
 function formatDate(iso: string): string {
   const d = new Date(iso)
@@ -26,9 +27,10 @@ export default function MyPatternPage() {
   const router = useRouter()
   const [records, setRecords] = useState<ToneCheckPatternRecord[]>([])
 
+  const scopeReady = useScopeReady()
   useEffect(() => {
-    setRecords(getPatternRecords())
-  }, [])
+    if (scopeReady) setRecords(getPatternRecords())
+  }, [scopeReady])
 
   function handleBack() {
     if (typeof window !== 'undefined' && window.history.length > 1) {

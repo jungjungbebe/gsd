@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getPlaybookRecords, type ToneCheckPlaybookRecord } from '@/lib/tutone-records'
+import { useScopeReady } from '@/lib/tutone-scope'
 
 function formatDate(iso: string): string {
   const d = new Date(iso)
@@ -18,9 +19,10 @@ export default function MyPlaybookPage() {
   const [records, setRecords] = useState<ToneCheckPlaybookRecord[]>([])
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
+  const scopeReady = useScopeReady()
   useEffect(() => {
-    setRecords(getPlaybookRecords())
-  }, [])
+    if (scopeReady) setRecords(getPlaybookRecords())
+  }, [scopeReady])
 
   function handleBack() {
     if (typeof window !== 'undefined' && window.history.length > 1) {

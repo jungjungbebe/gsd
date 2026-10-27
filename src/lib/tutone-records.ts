@@ -2,6 +2,8 @@
 // 기존 tutone_pattern_count / tutone_playbook_count 카운터 로직은 그대로 두고,
 // 이 파일은 "record"(원문/상황/대응방향/날짜)만 별도 키에 추가로 쌓는다.
 
+import { scopedKey } from '@/lib/tutone-scope'
+
 export interface ToneCheckPatternRecord {
   id: string
   date: string
@@ -20,7 +22,7 @@ const MAX_RECORDS = 100
 
 function readRecords<T>(key: string): T[] {
   try {
-    const raw = localStorage.getItem(key)
+    const raw = localStorage.getItem(scopedKey(key))
     if (!raw) return []
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? parsed : []
@@ -31,7 +33,7 @@ function readRecords<T>(key: string): T[] {
 
 function writeRecords<T>(key: string, list: T[]) {
   try {
-    localStorage.setItem(key, JSON.stringify(list.slice(0, MAX_RECORDS)))
+    localStorage.setItem(scopedKey(key), JSON.stringify(list.slice(0, MAX_RECORDS)))
   } catch {}
 }
 

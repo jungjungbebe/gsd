@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { addPatternRecord, addPlaybookRecord } from '@/lib/tutone-records'
+import { scopedKey, useScopeReady } from '@/lib/tutone-scope'
 
 const TranslatorOrb = dynamic(() => import('@/components/TranslatorOrb'), { ssr: false })
 
@@ -143,12 +144,14 @@ export default function ToneCheckFlow() {
   // 아직 백엔드 집계가 없어서 브라우저 localStorage에 누적 — 레이아웃/카드 위치는 고정, 숫자만 성장
   const [patternCount, setPatternCount] = useState(0)
   const [playbookCount, setPlaybookCount] = useState(0)
+  const scopeReady = useScopeReady()
   useEffect(() => {
+    if (!scopeReady) return
     try {
-      setPatternCount(Number(localStorage.getItem(PATTERN_COUNT_KEY)) || 0)
-      setPlaybookCount(Number(localStorage.getItem(PLAYBOOK_COUNT_KEY)) || 0)
+      setPatternCount(Number(localStorage.getItem(scopedKey(PATTERN_COUNT_KEY))) || 0)
+      setPlaybookCount(Number(localStorage.getItem(scopedKey(PLAYBOOK_COUNT_KEY))) || 0)
     } catch {}
-  }, [])
+  }, [scopeReady])
 
   // /service와 동일한 순차 페이드인 (header -> orb -> content)
   const [show, setShow] = useState({ header: false, orb: false, content: false })
@@ -209,7 +212,7 @@ export default function ToneCheckFlow() {
     // 내 패턴: 새로운 상황을 체크할 때마다 +1 (같은 상황에 대한 상대방 재선택은 카운트하지 않음)
     setPatternCount((n) => {
       const next = n + 1
-      try { localStorage.setItem(PATTERN_COUNT_KEY, String(next)) } catch {}
+      try { localStorage.setItem(scopedKey(PATTERN_COUNT_KEY), String(next)) } catch {}
       return next
     })
   }
@@ -284,7 +287,7 @@ export default function ToneCheckFlow() {
   function bumpPlaybookCount() {
     setPlaybookCount((n) => {
       const next = n + 1
-      try { localStorage.setItem(PLAYBOOK_COUNT_KEY, String(next)) } catch {}
+      try { localStorage.setItem(scopedKey(PLAYBOOK_COUNT_KEY), String(next)) } catch {}
       return next
     })
   }
