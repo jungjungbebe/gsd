@@ -60,7 +60,7 @@ const sections: { title: string; body: React.ReactNode }[] = [
     title: '6. 문의처',
     body: (
       <p>
-        개인정보 관련 문의: <a href="mailto:anattametta653@gmail.com">anattametta653@gmail.com</a>
+        개인정보 관련 문의: <a href="mailto:lylasule@gmail.com">lylasule@gmail.com</a>
       </p>
     ),
   },
