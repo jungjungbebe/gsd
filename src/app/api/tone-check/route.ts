@@ -3,6 +3,8 @@ import { clientIp, rateLimit } from '@/lib/rate-limit'
 
 const MAX_TEXT = 1000
 
+export const maxDuration = 30
+
 interface ToneCheckResult {
   interpretation: string
   tags: string[]
@@ -12,6 +14,7 @@ interface ToneCheckResult {
   alternatives: { id: string; label: string; reasoning: string; reply: string }[]
   isSample: boolean
   counterpart?: string
+  fallbackReason?: string
 }
 
 const FALLBACK_PROFILES: Omit<ToneCheckResult, 'isSample' | 'counterpart'>[] = [
@@ -97,7 +100,8 @@ export async function POST(req: Request) {
         ? counterpart
         : undefined
 
-    const apiKey = process.env.OPENAI_API_KEY
+    let fallbackReason = 'no_key'
+    const apiKey = process.env.OPENAI_API_KEY?.trim()
     if (apiKey && !apiKey.startsWith('placeholder')) {
       try {
         const contextLine = counterpartLabel
@@ -108,6 +112,7 @@ export async function POST(req: Request) {
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
           body: JSON.stringify({
             model: 'gpt-4o-mini',
+            response_format: { type: 'json_object' },
             messages: [
               {
                 role: 'system',
@@ -121,23 +126,55 @@ export async function POST(req: Request) {
             temperature: 0.6,
           }),
         })
-        const data = await res.json()
-        const parsed = JSON.parse(data.choices[0].message.content)
-        const result: ToneCheckResult = {
-          ...parsed,
-          evidenceCount: 0,
-          evidenceDistribution: [],
-          isSample: false,
-          counterpart: counterpartLabel,
+        if (!res.ok) {
+          const body = (await res.text()).slice(0, 300)
+          console.error('[tone-check] OpenAI HTTP', res.status, body)
+          fallbackReason = `openai_http_${res.status}`
+        } else {
+          const data = await res.json()
+          const raw: string = data?.choices?.[0]?.message?.content ?? ''
+          const cleaned = raw.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '')
+          const parsed = JSON.parse(cleaned)
+          const ok =
+            typeof parsed?.interpretation === 'string' &&
+            Array.isArray(parsed?.tags) &&
+            typeof parsed?.response?.reply === 'string' &&
+            Array.isArray(parsed?.alternatives)
+          if (!ok) {
+            console.error('[tone-check] OpenAI response shape invalid', cleaned.slice(0, 300))
+            fallbackReason = 'bad_shape'
+          } else {
+            const result: ToneCheckResult = {
+              interpretation: parsed.interpretation,
+              tags: parsed.tags.slice(0, 3),
+              response: {
+                reasoning: String(parsed.response.reasoning ?? ''),
+                reply: parsed.response.reply,
+              },
+              alternatives: parsed.alternatives.slice(0, 3).map((a: any, i: number) => ({
+                id: String(a?.id ?? `alt${i}`),
+                label: String(a?.label ?? '다른 방향'),
+                reasoning: String(a?.reasoning ?? ''),
+                reply: String(a?.reply ?? ''),
+              })),
+              evidenceCount: 0,
+              evidenceDistribution: [],
+              isSample: false,
+              counterpart: counterpartLabel,
+            }
+            return NextResponse.json(result)
+          }
         }
-        return NextResponse.json(result)
-      } catch {
-        // fall through to fallback below
+      } catch (err) {
+        console.error('[tone-check] OpenAI call failed', err)
+        fallbackReason = 'exception'
       }
+    } else {
+      console.error('[tone-check] OPENAI_API_KEY is missing or placeholder')
     }
 
     const fallback = pickFallback(text)
-    const result: ToneCheckResult = { ...fallback, isSample: true, counterpart: counterpartLabel }
+    const result: ToneCheckResult = { ...fallback, isSample: true, counterpart: counterpartLabel, fallbackReason }
     return NextResponse.json(result)
   } catch {
     return NextResponse.json({ error: '분석에 실패했습니다.' }, { status: 500 })
