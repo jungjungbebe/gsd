@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { addPatternRecord, addPlaybookRecord, addScrapRecord, getScrapRecords, removeScrapRecord, type ToneCheckScrapRecord } from '@/lib/tutone-records'
@@ -176,7 +176,27 @@ export default function ToneCheckFlow() {
     return () => clearTimeout(t)
   }, [stage])
 
+  // 같은 메시지 + 같은 상대 조합은 한 번만 호출하고 결과를 기억해둔다 (토큰 절약)
+  const resultCache = useRef<Map<string, ToneCheckResult>>(new Map())
+
   async function runCheck(text: string, withCounterpart?: string | null, opts?: { recordPattern?: boolean }) {
+    const cacheKey = text + '||' + (withCounterpart ?? '')
+    const cached = resultCache.current.get(cacheKey)
+    if (cached) {
+      setError('')
+      setResult(cached)
+      setEvidenceExpanded(false)
+      setSelectedAltId(null)
+      setStage('result')
+      if (opts?.recordPattern) {
+        addPatternRecord({
+          originalText: text,
+          situationCategory: cached.tags?.[0] || '기타 요청',
+          direction: cached.tags?.[1] || '검토 필요',
+        })
+      }
+      return
+    }
     setStage('checking')
     setError('')
     try {
@@ -191,6 +211,7 @@ export default function ToneCheckFlow() {
         setStage('input')
         return
       }
+      if (!data.isSample) resultCache.current.set(cacheKey, data)
       setResult(data)
       setEvidenceExpanded(false)
       setSelectedAltId(null)
