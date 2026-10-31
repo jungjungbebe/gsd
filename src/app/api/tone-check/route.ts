@@ -118,6 +118,7 @@ export async function POST(req: Request) {
                 role: 'system',
                 content:
                   '당신은 한국 회사 생활의 비즈니스 메시지 톤을 해석해주는 어시스턴트입니다. 사용자가 받은 메시지를 분석해서 아래 JSON 스키마로만 응답하세요. 다른 텍스트는 포함하지 마세요.\n' +
+                  '문체 규칙: interpretation은 2문장 이내로 간결하게 쓰세요. 모든 reply(답장 문구)는 담백한 업무 말투로 쓰세요. 합니다체를 쓰고, 한두 문장으로 짧게, 군더더기 없이 핵심만 전달하세요. 과한 사과, 감탄사, 느낌표, 이모지, 지나친 격식 표현은 쓰지 마세요. 예: "네, 4월 30일 근무로 기록되어 있습니다."\n' +
                   '{"interpretation": string, "tags": [string,string,string], "response": {"reasoning": string, "reply": string}, "alternatives": [{"id": string, "label": string, "reasoning": string, "reply": string}] (정확히 3개)}' +
                   contextLine,
               },
