@@ -134,6 +134,25 @@ async function compressImage(file: File, maxSize = 1000): Promise<string> {
   }
 }
 
+async function makeThumb(dataUrl: string, maxSize = 480): Promise<string | undefined> {
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image()
+      i.onload = () => resolve(i)
+      i.onerror = reject
+      i.src = dataUrl
+    })
+    const scale = Math.min(1, maxSize / Math.max(img.width, img.height))
+    const c = document.createElement('canvas')
+    c.width = Math.round(img.width * scale)
+    c.height = Math.round(img.height * scale)
+    c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)
+    return c.toDataURL('image/jpeg', 0.6)
+  } catch {
+    return undefined
+  }
+}
+
 function exampleSvg(sentence: string): string {
   const svg =
     '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600" fill="#f4efe6"/>' +
@@ -297,8 +316,9 @@ export default function ThemeCycle({
     setUsedWords((cur) => (cur.includes(word) ? cur.filter((w) => w !== word) : cur.concat(word)))
   }
 
-  function finishPhoto() {
+  async function finishPhoto() {
     if (!photo) return
+    const thumb = isExample ? undefined : await makeThumb(photo)
     const words = todaySet.hints.map((h) => h.word).filter((w) => usedWords.includes(w))
     const next: ThemeRecord = { ...record, write: true, writePhoto: isExample ? undefined : photo }
     setRecord(next)
@@ -311,6 +331,7 @@ export default function ThemeCycle({
       sentence: THEME.spot.sentence,
       myText: '',
       expressions: words,
+      photo: thumb,
     })
     setCollected(words)
     setCardNo(getWritingRecords().length)

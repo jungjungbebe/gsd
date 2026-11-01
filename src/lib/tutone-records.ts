@@ -55,6 +55,7 @@ export interface WritingRecord {
   sentence: string
   myText?: string
   expressions?: string[]
+  photo?: string // 작은 썸네일. 이 기기에만 저장하고 서버에는 올리지 않는다
 }
 
 interface WritingRow {
@@ -223,7 +224,19 @@ export function addWritingRecord(input: Omit<WritingRecord, 'id' | 'date'>) {
   const list = getWritingRecords()
   const rec: WritingRecord = { id: makeId(), date: new Date().toISOString(), ...input }
   list.unshift(rec)
-  writeRecords(WRITING_RECORDS_KEY, list)
+  // 사진이 들어가면 기기 저장 용량이 부족할 수 있어, 실패하면 오래된 사진부터 줄여 다시 저장한다
+  const tryWrite = (l: WritingRecord[]) => {
+    try {
+      localStorage.setItem(scopedKey(WRITING_RECORDS_KEY), JSON.stringify(l.slice(0, MAX_RECORDS)))
+      return true
+    } catch {
+      return false
+    }
+  }
+  if (!tryWrite(list)) {
+    const slim = list.map((r, i) => (i === 0 ? r : { ...r, photo: undefined }))
+    if (!tryWrite(slim)) tryWrite(list.map((r) => ({ ...r, photo: undefined })))
+  }
   pushToServer(WRITING_TABLE, writingToRow(rec))
 }
 

@@ -221,6 +221,13 @@ export default function MyPage() {
                   <span className={styles.savedInput}>{t.sentence}</span>
                   <span className={styles.savedTime}>{timeAgo(t.date)}</span>
                 </div>
+                {t.photo ? (
+                  <img
+                    src={t.photo}
+                    alt="내 필사 사진"
+                    style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', borderRadius: 12, marginTop: 4 }}
+                  />
+                ) : null}
                 {t.myText ? (
                   <div className={styles.savedResults}>
                     <div className={styles.savedResult}>
