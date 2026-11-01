@@ -12,6 +12,17 @@ import {
 } from '@/lib/themeRecord'
 import { addWritingRecord, getWritingRecords } from '@/lib/tutone-records'
 import { getTodaySet } from '@/lib/missionSets'
+import {
+  AREAS,
+  LOCATION_KEY,
+  STATIC_SPOTS,
+  Spot,
+  formatDist,
+  getPosition,
+  isInSeoul,
+  nearestArea,
+  resolveSpots,
+} from '@/lib/spots'
 
 declare global {
   interface Window {
@@ -37,11 +48,7 @@ const THEME_BASE = {
   },
 }
 
-const NEARBY_SPOTS = [
-  { id: 'daerim', name: '대림창고', dist: '120m', lat: 37.5445, lng: 127.0564 },
-  { id: 'nearby1', name: '성수연방', dist: '340m', lat: 37.5439, lng: 127.0553 },
-  { id: 'nearby2', name: '어니언 성수', dist: '410m', lat: 37.5441, lng: 127.0578 },
-]
+const FALLBACK_SPOT: Spot = { id: 'none', name: '근처 카페', category: '', lat: THEME_BASE.spot.lat, lng: THEME_BASE.spot.lng, distM: null }
 
 type Stage = 'hunt' | 'stamp' | 'write' | 'convert' | 'photo' | 'collect'
 
@@ -190,14 +197,97 @@ export default function ThemeCycle({
   const [archiveCount, setArchiveCount] = useState(0)
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
-  const [selectedSpotId, setSelectedSpotId] = useState(THEME.spot.id)
+  const [selectedSpotId, setSelectedSpotId] = useState('')
+  const [loc, setLoc] = useState<{ mode: 'gps' | 'area'; areaId: string }>({ mode: 'area', areaId: 'seongsu' })
+  const [locReady, setLocReady] = useState(false)
+  const [locNonce, setLocNonce] = useState(0)
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null)
+  const [spots, setSpots] = useState<Spot[]>([])
+  const [spotsLoading, setSpotsLoading] = useState(false)
+  const [areaLabel, setAreaLabel] = useState('성수')
+  const [locMsg, setLocMsg] = useState('')
+  const loadedKeyRef = useRef('')
 
   const mapDivRef = useRef<HTMLDivElement | null>(null)
-  const selectedSpot = NEARBY_SPOTS.find((x) => x.id === selectedSpotId) ?? NEARBY_SPOTS[0]
+  const selectedSpot = spots.find((x) => x.id === selectedSpotId) ?? spots[0] ?? FALLBACK_SPOT
   const mapInstanceRef = useRef<any>(null)
   const overlaysRef = useRef<any[]>([])
   const huntInputRef = useRef<HTMLInputElement | null>(null)
   const writeInputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LOCATION_KEY)
+      if (raw) {
+        const v = JSON.parse(raw)
+        if ((v.mode === 'gps' || v.mode === 'area') && AREAS.some((a) => a.id === v.areaId)) {
+          setLoc({ mode: v.mode, areaId: v.areaId })
+        }
+      }
+    } catch {}
+    setLocReady(true)
+  }, [])
+
+  function saveLoc(next: { mode: 'gps' | 'area'; areaId: string }) {
+    setLoc(next)
+    try {
+      localStorage.setItem(LOCATION_KEY, JSON.stringify(next))
+    } catch {}
+  }
+
+  useEffect(() => {
+    if (stage !== 'write' || !mapReady || !locReady) return
+    const key = `${loc.mode}:${loc.areaId}:${locNonce}`
+    if (loadedKeyRef.current === key) return
+    loadedKeyRef.current = key
+    let cancelled = false
+    let finished = false
+    ;(async () => {
+      setSpotsLoading(true)
+      setLocMsg('')
+      let origin: { lat: number; lng: number } | null = null
+      if (loc.mode === 'gps') {
+        origin = await getPosition()
+        if (!origin) setLocMsg('위치를 가져오지 못했어요. 동네를 직접 골라주세요.')
+        else if (!isInSeoul(origin)) {
+          origin = null
+          setLocMsg('서울 안에서 이용할 수 있어요. 동네를 골라주세요.')
+        }
+      }
+      let area = AREAS.find((a) => a.id === loc.areaId) ?? AREAS[0]
+      let label = area.name
+      if (origin) {
+        const near = nearestArea(origin)
+        if (near.distM <= 4000) {
+          area = near.area
+          label = near.area.name
+        } else {
+          area = { ...near.area, picks: [], lat: origin.lat, lng: origin.lng }
+          label = '내 주변'
+        }
+      }
+      let list = await resolveSpots({ area, origin })
+      if (cancelled) return
+      if (list.length === 0) {
+        list = STATIC_SPOTS
+        label = '성수'
+        setLocMsg('지금은 추천을 불러오지 못해 기본 장소를 보여드려요.')
+      }
+      setUserPos(origin)
+      setAreaLabel(label)
+      setSpots(list)
+      setSelectedSpotId(list[0].id)
+      setSpotsLoading(false)
+      finished = true
+    })()
+    return () => {
+      cancelled = true
+      if (!finished) {
+        loadedKeyRef.current = ''
+        setSpotsLoading(false)
+      }
+    }
+  }, [stage, mapReady, locReady, loc.mode, loc.areaId, locNonce])
 
   useEffect(() => {
     setRecord(loadThemeRecord())
@@ -212,7 +302,12 @@ export default function ThemeCycle({
     if ((stage !== 'write' && stage !== 'hunt') || !mapReady || !mapDivRef.current) return
     if (!window.kakao || !window.kakao.maps) return
 
-    const centerCoords = stage === 'write' ? THEME.spot : THEME.huntSpot
+    const centerCoords =
+      stage === 'write'
+        ? spots.length
+          ? selectedSpot
+          : userPos ?? AREAS.find((a) => a.id === loc.areaId) ?? THEME.spot
+        : THEME.huntSpot
     const center = new window.kakao.maps.LatLng(centerCoords.lat, centerCoords.lng)
     const map = new window.kakao.maps.Map(mapDivRef.current, {
       center,
@@ -237,7 +332,18 @@ export default function ThemeCycle({
     }
 
     if (stage === 'write') {
-      NEARBY_SPOTS.forEach((spot) => {
+      if (userPos) {
+        const me = document.createElement('div')
+        me.innerHTML = '<div style="width:16px;height:16px;border-radius:50%;background:#3b82f6;border:3px solid #fff;box-shadow:0 0 0 4px rgba(59,130,246,0.25);"></div>'
+        const meOverlay = new window.kakao.maps.CustomOverlay({
+          position: new window.kakao.maps.LatLng(userPos.lat, userPos.lng),
+          content: me,
+          yAnchor: 0.5,
+        })
+        meOverlay.setMap(map)
+        overlaysRef.current.push(meOverlay)
+      }
+      spots.forEach((spot) => {
         const isSelected = spot.id === selectedSpotId
         const el = document.createElement('div')
         el.innerHTML = isSelected
@@ -256,7 +362,7 @@ export default function ThemeCycle({
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, mapReady, selectedSpotId])
+  }, [stage, mapReady, selectedSpotId, spots, userPos])
 
   useEffect(() => {
     const m = mapInstanceRef.current
@@ -338,7 +444,7 @@ export default function ThemeCycle({
     } catch {}
     addWritingRecord({
       theme: `${THEME.korean}(${THEME.hanja})`,
-      spot: `${THEME.spot.area} ${selectedSpot.name}`,
+      spot: `${areaLabel} ${selectedSpot.name}`,
       sentence: THEME.spot.sentence,
       myText: '',
       expressions: words,
@@ -485,18 +591,52 @@ export default function ThemeCycle({
             </button>
           </div>
 
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, WebkitOverflowScrolling: 'touch' }}>
+            <button
+              className="ttPress"
+              onClick={() => {
+                if (loc.mode === 'gps') setLocNonce((n) => n + 1)
+                else saveLoc({ mode: 'gps', areaId: loc.areaId })
+              }}
+              style={{ flex: '0 0 auto', padding: '7px 12px', borderRadius: 999, border: '1px solid var(--purple-500)', background: loc.mode === 'gps' && !locMsg ? '#dff77e' : 'var(--bg-card)', fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              📍 내 위치로 찾기
+            </button>
+            {AREAS.map((a) => {
+              const on = loc.mode === 'area' && loc.areaId === a.id
+              return (
+                <button
+                  key={a.id}
+                  className="ttPress"
+                  onClick={() => saveLoc({ mode: 'area', areaId: a.id })}
+                  style={{ flex: '0 0 auto', padding: '7px 12px', borderRadius: 999, border: on ? '1px solid var(--purple-500)' : '0.5px solid var(--border-default)', background: on ? '#dff77e' : 'var(--bg-card)', fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-primary)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  {a.name}
+                </button>
+              )
+            })}
+          </div>
+          {locMsg && (
+            <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-secondary)' }}>{locMsg}</p>
+          )}
+
           <div style={{ position: 'relative', height: mapBig ? 380 : 190, transition: 'height 0.25s ease' }}>
             <div ref={mapDivRef} className={styles.map} style={{ height: '100%', borderRadius: 16, overflow: 'hidden' }} />
             <span style={{ position: 'absolute', top: 10, left: 10, padding: '6px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.9)', fontFamily: 'var(--font-sans)', fontSize: 12, color: '#2a2035', zIndex: 2 }}>
-              📍 {THEME.spot.area} 근처
+              📍 {areaLabel} 근처
             </span>
             <span style={{ position: 'absolute', bottom: 10, left: 10, padding: '7px 12px', borderRadius: 10, background: 'var(--purple-500)', fontFamily: 'var(--font-sans)', fontSize: 12, color: '#fff', zIndex: 2 }}>
-              {selectedSpot.name} 선택됨 ✓
+              {spotsLoading ? '장소 찾는 중…' : `${selectedSpot.name} 선택됨 ✓`}
             </span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {NEARBY_SPOTS.map((spot) => {
+            {spotsLoading && spots.length === 0 && (
+              <div style={{ gridColumn: '1 / -1', padding: 20, textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--text-secondary)' }}>
+                근처 필사 스팟을 찾는 중이에요…
+              </div>
+            )}
+            {spots.map((spot) => {
               const sel = spot.id === selectedSpotId
               return (
                 <button
@@ -524,15 +664,15 @@ export default function ThemeCycle({
                   </div>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 700 }}>{spot.name}</div>
-                    <div style={{ marginTop: 2, fontSize: 11, color: 'var(--text-secondary)' }}>{THEME.spot.area} / 거리 정보 확인 전</div>
+                    <div style={{ marginTop: 2, fontSize: 11, color: 'var(--text-secondary)' }}>{spot.distM != null ? `${formatDist(spot.distM)} · ` : ''}{spot.category || areaLabel}</div>
                   </div>
                 </button>
               )
             })}
           </div>
 
-          <button className={`${styles.certBtn} ttPress`} onClick={() => setStage('convert')}>
-            {selectedSpot.name} 선택 · 미션 보기 →
+          <button className={`${styles.certBtn} ttPress`} disabled={spots.length === 0} onClick={() => setStage('convert')}>
+            {spots.length === 0 ? '장소를 찾는 중…' : `${selectedSpot.name} 선택 · 미션 보기 →`}
           </button>
           <p style={{ margin: 0, textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-secondary)' }}>
             다음 화면에서 원문과 힌트를 함께 볼 수 있어요.
@@ -784,7 +924,7 @@ export default function ThemeCycle({
             </div>
 
             <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed var(--border-default)', display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>
-              <span>{selectedSpot.name} / {THEME.spot.area}</span>
+              <span>{selectedSpot.name} / {areaLabel}</span>
               <span>MY SENTENCE · {String(cardNo).padStart(3, '0')}</span>
             </div>
           </div>
