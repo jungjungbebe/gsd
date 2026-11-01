@@ -235,8 +235,44 @@ export default function ThemeCycle({
     } catch {}
   }
 
+  function renderLocChips() {
+    return (
+      <>
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, WebkitOverflowScrolling: 'touch' }}>
+            <button
+              className="ttPress"
+              onClick={() => {
+                if (loc.mode === 'gps') setLocNonce((n) => n + 1)
+                else saveLoc({ mode: 'gps', areaId: loc.areaId })
+              }}
+              style={{ flex: '0 0 auto', padding: '7px 12px', borderRadius: 999, border: '1px solid var(--purple-500)', background: loc.mode === 'gps' && !locMsg ? '#dff77e' : 'var(--bg-card)', fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              📍 내 위치로 찾기
+            </button>
+            {AREAS.map((a) => {
+              const on = loc.mode === 'area' && loc.areaId === a.id
+              return (
+                <button
+                  key={a.id}
+                  className="ttPress"
+                  onClick={() => saveLoc({ mode: 'area', areaId: a.id })}
+                  style={{ flex: '0 0 auto', padding: '7px 12px', borderRadius: 999, border: on ? '1px solid var(--purple-500)' : '0.5px solid var(--border-default)', background: on ? '#dff77e' : 'var(--bg-card)', fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-primary)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  {a.name}
+                </button>
+              )
+            })}
+          </div>
+          {locMsg && (
+            <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-secondary)' }}>{locMsg}</p>
+          )}
+
+      </>
+    )
+  }
+
   useEffect(() => {
-    if (stage !== 'write' || !mapReady || !locReady) return
+    if ((stage !== 'write' && stage !== 'hunt') || !mapReady || !locReady) return
     const key = `${loc.mode}:${loc.areaId}:${locNonce}`
     if (loadedKeyRef.current === key) return
     loadedKeyRef.current = key
@@ -307,7 +343,7 @@ export default function ThemeCycle({
         ? spots.length
           ? selectedSpot
           : userPos ?? AREAS.find((a) => a.id === loc.areaId) ?? THEME.spot
-        : THEME.huntSpot
+        : userPos ?? AREAS.find((a) => a.id === loc.areaId) ?? THEME.huntSpot
     const center = new window.kakao.maps.LatLng(centerCoords.lat, centerCoords.lng)
     const map = new window.kakao.maps.Map(mapDivRef.current, {
       center,
@@ -323,7 +359,7 @@ export default function ThemeCycle({
       el.innerHTML =
         '<div style="width:44px;height:44px;border-radius:50%;background:#d9a441;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:18px;">📷</div>'
       const overlay = new window.kakao.maps.CustomOverlay({
-        position: new window.kakao.maps.LatLng(THEME.huntSpot.lat, THEME.huntSpot.lng),
+        position: new window.kakao.maps.LatLng(centerCoords.lat, centerCoords.lng),
         content: el,
         yAnchor: 0.5,
       })
@@ -504,7 +540,8 @@ export default function ThemeCycle({
           <div ref={mapDivRef} className={styles.map} />
           <div className={styles.sheet}>
             <div className={styles.handle} />
-            <div style={{ padding: '16px 16px 0' }}>
+            <div style={{ padding: '16px 16px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {renderLocChips()}
               <span className="label-mono">WORD HUNT</span>
               <p style={{ marginTop: 8, fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 300, lineHeight: 1.6, color: 'var(--text-primary)' }}>
                 {THEME.huntPrompt}
@@ -528,7 +565,7 @@ export default function ThemeCycle({
         <StampCard
           photo={capturedPhoto}
           theme={THEME}
-          location={`${THEME.spot.area} · SEOUL`}
+          location={`${areaLabel} · SEOUL`}
           onStamped={handleStamped}
           onFinish={() => (onClose ? onClose() : setStage('hunt'))}
         />
@@ -591,34 +628,7 @@ export default function ThemeCycle({
             </button>
           </div>
 
-          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, WebkitOverflowScrolling: 'touch' }}>
-            <button
-              className="ttPress"
-              onClick={() => {
-                if (loc.mode === 'gps') setLocNonce((n) => n + 1)
-                else saveLoc({ mode: 'gps', areaId: loc.areaId })
-              }}
-              style={{ flex: '0 0 auto', padding: '7px 12px', borderRadius: 999, border: '1px solid var(--purple-500)', background: loc.mode === 'gps' && !locMsg ? '#dff77e' : 'var(--bg-card)', fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', cursor: 'pointer', whiteSpace: 'nowrap' }}
-            >
-              📍 내 위치로 찾기
-            </button>
-            {AREAS.map((a) => {
-              const on = loc.mode === 'area' && loc.areaId === a.id
-              return (
-                <button
-                  key={a.id}
-                  className="ttPress"
-                  onClick={() => saveLoc({ mode: 'area', areaId: a.id })}
-                  style={{ flex: '0 0 auto', padding: '7px 12px', borderRadius: 999, border: on ? '1px solid var(--purple-500)' : '0.5px solid var(--border-default)', background: on ? '#dff77e' : 'var(--bg-card)', fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-primary)', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                >
-                  {a.name}
-                </button>
-              )
-            })}
-          </div>
-          {locMsg && (
-            <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-secondary)' }}>{locMsg}</p>
-          )}
+          {renderLocChips()}
 
           <div style={{ position: 'relative', height: mapBig ? 380 : 190, transition: 'height 0.25s ease' }}>
             <div ref={mapDivRef} className={styles.map} style={{ height: '100%', borderRadius: 16, overflow: 'hidden' }} />
