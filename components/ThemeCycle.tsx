@@ -11,6 +11,7 @@ import {
   loadArchiveCount,
 } from '@/lib/themeRecord'
 import { addWritingRecord } from '@/lib/tutone-records'
+import { getTodaySet, collectExpressions } from '@/lib/missionSets'
 
 declare global {
   interface Window {
@@ -18,7 +19,7 @@ declare global {
   }
 }
 
-const THEME = {
+const THEME_BASE = {
   korean: '전환',
   hanja: '轉換',
   english: 'TRANSITION',
@@ -42,7 +43,7 @@ const NEARBY_SPOTS = [
   { id: 'nearby2', name: '어니언 성수', dist: '410m', lat: 37.5441, lng: 127.0578 },
 ]
 
-type Stage = 'hunt' | 'stamp' | 'write' | 'collect'
+type Stage = 'hunt' | 'stamp' | 'write' | 'convert' | 'collect'
 
 export default function ThemeCycle({
   initialStage = 'hunt',
@@ -51,7 +52,19 @@ export default function ThemeCycle({
   initialStage?: 'hunt' | 'write'
   onClose?: () => void
 }) {
+  const todaySet = getTodaySet()
+  const THEME = {
+    ...THEME_BASE,
+    korean: todaySet.korean,
+    hanja: todaySet.hanja,
+    english: todaySet.english,
+    huntPrompt: `도시에서 '${todaySet.korean}'을 떠올리게 하는 장면이나 단어를 찾아 사진으로 남겨보세요.`,
+    spot: { ...THEME_BASE.spot, sentence: todaySet.sentence },
+  }
   const [stage, setStage] = useState<Stage>(initialStage)
+  const [myText, setMyText] = useState('')
+  const [openedHints, setOpenedHints] = useState<string[]>([])
+  const [collected, setCollected] = useState<string[]>([])
   const [record, setRecord] = useState<ThemeRecord>({ hunt: false, write: false })
   const [archiveCount, setArchiveCount] = useState(0)
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
@@ -169,14 +182,27 @@ export default function ThemeCycle({
       const next: ThemeRecord = { ...record, write: true, writePhoto: reader.result as string }
       setRecord(next)
       saveThemeRecord(next)
-      addWritingRecord({
-        theme: `${THEME.korean}(${THEME.hanja})`,
-        spot: `${THEME.spot.area} ${THEME.spot.name}`,
-        sentence: THEME.spot.sentence,
-      })
-      setStage('collect')
+      setStage('convert')
     }
     reader.readAsDataURL(file)
+  }
+
+  function finishConvert(skip: boolean) {
+    const text = skip ? '' : myText.trim()
+    const words = skip ? [] : collectExpressions(text, todaySet.hints)
+    addWritingRecord({
+      theme: `${THEME.korean}(${THEME.hanja})`,
+      spot: `${THEME.spot.area} ${THEME.spot.name}`,
+      sentence: THEME.spot.sentence,
+      myText: text,
+      expressions: words,
+    })
+    setCollected(words)
+    setStage('collect')
+  }
+
+  function toggleHint(word: string) {
+    setOpenedHints((cur) => (cur.includes(word) ? cur.filter((w) => w !== word) : cur.concat(word)))
   }
 
   const kakaoKey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY
@@ -197,6 +223,7 @@ export default function ThemeCycle({
             {stage === 'hunt' && '단어 사냥'}
             {stage === 'stamp' && '나의 발견'}
             {stage === 'write' && '필사 스팟'}
+            {stage === 'convert' && '문장 전환'}
             {stage === 'collect' && '기록'}
           </div>
           <div className={styles.sub}>오늘의 테마 · {THEME.korean} {THEME.hanja}</div>
@@ -333,13 +360,106 @@ export default function ThemeCycle({
         </>
       )}
 
+      {stage === 'convert' && (
+        <div className={styles.sheet} style={{ padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <span className="label-mono">CONVERT</span>
+            <p style={{ marginTop: 6, fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 300, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              {todaySet.bridge}
+            </p>
+          </div>
+          <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.6 }}>
+            {todaySet.mission}
+          </p>
+
+          <div>
+            <span className="label-mono">힌트 단어 · 눌러서 뜻 보기</span>
+            <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+              {todaySet.hints.map((h) => {
+                const open = openedHints.includes(h.word)
+                return (
+                  <button
+                    key={h.word}
+                    onClick={() => toggleHint(h.word)}
+                    style={{
+                      flex: 1,
+                      minHeight: 96,
+                      padding: 10,
+                      textAlign: 'left',
+                      borderRadius: 'var(--radius-md)',
+                      border: '0.5px solid var(--border-default)',
+                      background: open ? 'var(--bg-elevated)' : 'var(--bg-card)',
+                      fontFamily: 'var(--font-sans)',
+                      color: 'var(--text-primary)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {open ? (
+                      <>
+                        <div style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--text-secondary)' }}>{h.meaning}</div>
+                        <div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.5 }}>&ldquo;{h.example}&rdquo;</div>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 15, fontWeight: 600, textAlign: 'center', marginTop: 28 }}>{h.word} ↻</div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <textarea
+            value={myText}
+            onChange={(e) => setMyText(e.target.value)}
+            maxLength={200}
+            rows={4}
+            placeholder="나의 문장을 써보세요. 힌트 단어를 써도 되고, 내 표현으로 써도 좋아요."
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              padding: 12,
+              borderRadius: 'var(--radius-md)',
+              border: '0.5px solid var(--border-default)',
+              background: 'var(--bg-card)',
+              fontFamily: 'var(--font-sans)',
+              fontSize: 14,
+              lineHeight: 1.6,
+              color: 'var(--text-primary)',
+              resize: 'none',
+            }}
+          />
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="glass-card"
+              style={{ flex: 1, border: 'none', padding: '12px 0', fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--text-secondary)' }}
+              onClick={() => finishConvert(true)}
+            >
+              건너뛰기
+            </button>
+            <button
+              className={styles.certBtn}
+              style={{ flex: 2, opacity: myText.trim() ? 1 : 0.5 }}
+              disabled={!myText.trim()}
+              onClick={() => finishConvert(false)}
+            >
+              완료하기
+            </button>
+          </div>
+        </div>
+      )}
+
       {stage === 'collect' && (
         <div className={styles.sheet} style={{ padding: '32px 16px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
-          <div style={{ fontSize: 36 }}>🏅</div>
+          <div style={{ fontSize: 36 }}>✍️</div>
           <div style={{ fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 400, color: 'var(--text-primary)' }}>
             '{THEME.korean}'의 기록이 완성됐어요
           </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#5dcaa5' }}>+50 XP</div>
+          {collected.length > 0 && (
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--text-purple)' }}>
+              이번에 수집한 표현 · {collected.join(' / ')}
+            </div>
+          )}
 
           <div style={{ width: '100%', display: 'flex', gap: 8 }}>
             <div
@@ -383,7 +503,7 @@ export default function ThemeCycle({
           <div className="glass-card" style={{ width: '100%', boxSizing: 'border-box', padding: 16, textAlign: 'left' }}>
             <span className="label-mono">오늘의 테마 · {THEME.korean} {THEME.hanja}</span>
             <div style={{ marginTop: 8, fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 300, color: 'var(--text-primary)', lineHeight: 1.6 }}>
-              도시에서 발견한 장면과, 직접 눌러쓴 문장이 하나의 기록으로 남았어요.
+              필사 기록에 저장했어요. MY의 필사 기록 탭에서 다시 볼 수 있어요.
             </div>
           </div>
 

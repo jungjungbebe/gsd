@@ -53,6 +53,8 @@ export interface WritingRecord {
   theme: string
   spot: string
   sentence: string
+  myText?: string
+  expressions?: string[]
 }
 
 interface WritingRow {
@@ -61,6 +63,8 @@ interface WritingRow {
   theme: string
   spot: string
   sentence: string
+  my_text?: string | null
+  expressions?: string[] | null
 }
 
 function readRecords<T>(key: string): T[] {
@@ -161,11 +165,27 @@ export function addPlaybookRecord(input: Omit<ToneCheckPlaybookRecord, 'id' | 'd
 }
 
 function writingToRow(r: WritingRecord) {
-  return { id: r.id, created_at: r.date, theme: r.theme, spot: r.spot, sentence: r.sentence }
+  return {
+    id: r.id,
+    created_at: r.date,
+    theme: r.theme,
+    spot: r.spot,
+    sentence: r.sentence,
+    my_text: r.myText ?? '',
+    expressions: r.expressions ?? [],
+  }
 }
 
 function rowToWriting(row: WritingRow): WritingRecord {
-  return { id: row.id, date: new Date(row.created_at).toISOString(), theme: row.theme, spot: row.spot, sentence: row.sentence }
+  return {
+    id: row.id,
+    date: new Date(row.created_at).toISOString(),
+    theme: row.theme,
+    spot: row.spot,
+    sentence: row.sentence,
+    myText: row.my_text ?? '',
+    expressions: Array.isArray(row.expressions) ? row.expressions : [],
+  }
 }
 
 export function getScrapRecords(): ToneCheckScrapRecord[] {
@@ -269,7 +289,7 @@ export async function syncRecords(): Promise<void> {
       }),
       syncTable<WritingRow, WritingRecord>({
         table: WRITING_TABLE,
-        select: 'id, created_at, theme, spot, sentence',
+        select: 'id, created_at, theme, spot, sentence, my_text, expressions',
         recordsKey: WRITING_RECORDS_KEY,
         fromRow: rowToWriting,
         toRow: writingToRow,

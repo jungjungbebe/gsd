@@ -208,14 +208,32 @@ export default function MyPage() {
           </div>
         ) : activeTab === 'archive' && writings.length > 0 ? (
           <div className={styles.savedList}>
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-secondary)', padding: '0 4px' }}>
+              수집한 표현 {Array.from(new Set(writings.flatMap((w) => w.expressions ?? []))).length}개
+              {(() => {
+                const all = Array.from(new Set(writings.flatMap((w) => w.expressions ?? [])))
+                return all.length > 0 ? ' · ' + all.join(', ') : ''
+              })()}
+            </div>
             {writings.map((t) => (
               <div key={t.id} className={styles.savedCard}>
                 <div className={styles.savedTop}>
                   <span className={styles.savedInput}>{t.sentence}</span>
                   <span className={styles.savedTime}>{timeAgo(t.date)}</span>
                 </div>
+                {t.myText ? (
+                  <div className={styles.savedResults}>
+                    <div className={styles.savedResult}>
+                      <span className={styles.savedLabelBiz}>내 문장</span>
+                      <span className={styles.savedText}>{t.myText}</span>
+                    </div>
+                  </div>
+                ) : null}
                 <div className={styles.savedMeta}>
-                  <span>{t.theme} · {t.spot}</span>
+                  <span>
+                    {t.theme} · {t.spot}
+                    {t.expressions && t.expressions.length > 0 ? ' · 수집: ' + t.expressions.join(', ') : ''}
+                  </span>
                 </div>
               </div>
             ))}

@@ -6,7 +6,7 @@ import ComingSoon from '@/components/ComingSoon'
 import styles from './missions.module.css'
 import { ThemeRecord, loadThemeRecord } from '@/lib/themeRecord'
 
-const THEME_META = { korean: '전환', hanja: '轉換' }
+import { getTodaySet } from '@/lib/missionSets'
 
 const MISSIONS = [
   {
@@ -61,6 +61,7 @@ const CONTENT_READY: Record<string, boolean> = {
 type View = 'slider' | 'theme' | 'coming-soon'
 
 export default function MissionsPage() {
+  const todaySet = getTodaySet()
   const [view, setView] = useState<View>('slider')
   const [activeIndex, setActiveIndex] = useState(0)
   const [initialStage, setInitialStage] = useState<'hunt' | 'write'>('hunt')
@@ -114,7 +115,7 @@ export default function MissionsPage() {
       </div>
 
       <div style={{ padding: '0 16px 16px' }}>
-        <span className="label-mono">TODAY'S THEME · {THEME_META.korean} {THEME_META.hanja}</span>
+        <span className="label-mono">TODAY'S THEME · {todaySet.korean} {todaySet.hanja}</span>
         <div style={{ marginTop: 6, fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 300, color: 'var(--text-secondary)' }}>
           두 가지 방식으로 오늘의 단어를 경험해보세요.
         </div>
@@ -141,7 +142,7 @@ export default function MissionsPage() {
                 <h3 className={styles.cardTitle}>{m.title}</h3>
                 <p className={styles.cardDesc}>{m.desc}</p>
                 <div className={styles.cardFooter}>
-                  <span className={styles.cardDetail} style={{ color: m.accent }}>{m.detail}</span>
+                  <span className={styles.cardDetail} style={{ color: m.accent }}>{m.detail.replace('전환(轉換)', `${todaySet.korean}(${todaySet.hanja})`)}</span>
                   <span className={styles.cardArrow} style={{ color: m.accent }}>→</span>
                 </div>
               </div>
