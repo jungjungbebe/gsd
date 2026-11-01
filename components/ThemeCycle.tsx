@@ -179,6 +179,7 @@ export default function ThemeCycle({
     spot: { ...THEME_BASE.spot, sentence: todaySet.sentence },
   }
   const [stage, setStage] = useState<Stage>(initialStage)
+  const [mapBig, setMapBig] = useState(false)
   const [activeHint, setActiveHint] = useState<string | null>(null)
   const [cardNo, setCardNo] = useState(1)
   const [usedWords, setUsedWords] = useState<string[]>([])
@@ -192,6 +193,7 @@ export default function ThemeCycle({
   const [selectedSpotId, setSelectedSpotId] = useState(THEME.spot.id)
 
   const mapDivRef = useRef<HTMLDivElement | null>(null)
+  const selectedSpot = NEARBY_SPOTS.find((x) => x.id === selectedSpotId) ?? NEARBY_SPOTS[0]
   const mapInstanceRef = useRef<any>(null)
   const overlaysRef = useRef<any[]>([])
   const huntInputRef = useRef<HTMLInputElement | null>(null)
@@ -255,6 +257,15 @@ export default function ThemeCycle({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, mapReady, selectedSpotId])
+
+  useEffect(() => {
+    const m = mapInstanceRef.current
+    if (m && typeof m.relayout === 'function') {
+      m.relayout()
+      m.setCenter(new window.kakao.maps.LatLng(selectedSpot.lat, selectedSpot.lng))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapBig])
 
   function handleSelectSpot(spot: { id: string; lat: number; lng: number }) {
     setSelectedSpotId(spot.id)
@@ -327,7 +338,7 @@ export default function ThemeCycle({
     } catch {}
     addWritingRecord({
       theme: `${THEME.korean}(${THEME.hanja})`,
-      spot: `${THEME.spot.area} ${THEME.spot.name}`,
+      spot: `${THEME.spot.area} ${selectedSpot.name}`,
       sentence: THEME.spot.sentence,
       myText: '',
       expressions: words,
@@ -342,7 +353,7 @@ export default function ThemeCycle({
 
   return (
     <div className={styles.wrap}>
-      <style>{'@keyframes paperIn{from{opacity:0;transform:translateX(36px) rotate(1.5deg)}to{opacity:1;transform:none}}'}</style>
+      <style>{'@keyframes paperIn{from{opacity:0;transform:translateX(36px) rotate(1.5deg)}to{opacity:1;transform:none}} .ttPress:active{background:#dff77e!important;color:#2a2035!important}'}</style>
       <Script
         src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoKey}&autoload=false&libraries=services`}
         strategy="afterInteractive"
@@ -418,48 +429,115 @@ export default function ThemeCycle({
       )}
 
       {stage === 'write' && (
-        <>
-          <div ref={mapDivRef} className={styles.map} />
-          <div className={styles.sheet} style={paperStyle}>
-            <div className={styles.handle} />
-            <StepBar current={1} />
-            <div className={styles.cafeScroll}>
-              {NEARBY_SPOTS.map((spot) => (
-                <div
-                  key={spot.id}
-                  className={`${styles.cafeCard} ${spot.id === selectedSpotId ? styles.cafeSelected : ''}`}
-                  onClick={() => handleSelectSpot(spot)}
-                >
-                  <div className={styles.cafeTop}>
-                    <div className={styles.cafeIcon}>☕</div>
-                  </div>
-                  <div className={styles.cafeName}>{spot.name}</div>
-                  <div className={styles.cafeDist}>{spot.dist}</div>
-                  <div className={styles.cafeTags}>
-                    <span className={styles.cafeTag}>{THEME.spot.area}</span>
-                    <span className={styles.cafeTag}>{THEME.spot.tag}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+        <div className={styles.sheet} style={{ ...paperStyle, padding: '20px 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <StepBar current={1} />
+          <span className="label-mono">TODAY&apos;S MISSION / {THEME.korean}</span>
+          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 28, fontWeight: 800, lineHeight: 1.25, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
+            오늘의 문장을 바꿔 쓸
+            <br />
+            장소를 골라보세요.
+          </div>
+          <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 14, lineHeight: 1.7, color: 'var(--text-secondary)' }}>
+            업무의 말로 바꿔 종이에 쓰고,
+            <br />
+            사진으로 남기는 미션이에요.
+          </p>
 
-            <div style={{ padding: '4px 16px 0' }}>
-              <span className="label-mono">THE ORIGINAL · 오늘의 문장</span>
-              <p style={{ marginTop: 8, fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 500, lineHeight: 1.6, color: 'var(--text-primary)' }}>
-                &ldquo;{THEME.spot.sentence}&rdquo;
-              </p>
-              <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 300, color: 'var(--text-secondary)' }}>
-                같은 뜻을 업무의 말로 바꿔 쓰는 시간이에요.
-              </span>
+          <div
+            style={{
+              position: 'relative',
+              marginTop: 6,
+              padding: '26px 20px 16px',
+              borderRadius: 24,
+              background: 'var(--glass-purple-hover)',
+              border: '0.5px solid var(--border-default)',
+            }}
+          >
+            <div style={{ position: 'absolute', top: -12, right: 14 }}>
+              <Sticker rotate={4}>오늘의 문장 ✳</Sticker>
             </div>
-
-            <div className={styles.certBar}>
-              <button className={styles.certBtn} onClick={() => setStage('convert')}>
-                이 장소에서 시작하기 →
-              </button>
+            <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 22, fontWeight: 500, lineHeight: 1.55, color: 'var(--text-primary)' }}>
+              {(() => {
+                const idx = THEME.spot.sentence.indexOf(todaySet.sentenceMark)
+                if (idx < 0) return THEME.spot.sentence
+                return (
+                  <>
+                    {THEME.spot.sentence.slice(0, idx)}
+                    <mark style={{ background: '#dff77e', color: 'inherit', padding: '0 3px', borderRadius: 3 }}>{todaySet.sentenceMark}</mark>
+                    {THEME.spot.sentence.slice(idx + todaySet.sentenceMark.length)}
+                  </>
+                )
+              })()}
+            </p>
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: '0.5px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-secondary)' }}>
+              <span>✏️</span>
+              <span>&lsquo;{todaySet.task}&rsquo;를 업무 문장으로 바꾸기</span>
             </div>
           </div>
-        </>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>어디서 써볼까요?</span>
+            <button
+              onClick={() => setMapBig((v) => !v)}
+              style={{ background: 'none', border: 'none', fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-purple)', textDecoration: 'underline', cursor: 'pointer' }}
+            >
+              {mapBig ? '지도 작게 보기 ↙' : '지도 크게 보기 ↗'}
+            </button>
+          </div>
+
+          <div style={{ position: 'relative', height: mapBig ? 380 : 190, transition: 'height 0.25s ease' }}>
+            <div ref={mapDivRef} className={styles.map} style={{ height: '100%', borderRadius: 16, overflow: 'hidden' }} />
+            <span style={{ position: 'absolute', top: 10, left: 10, padding: '6px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.9)', fontFamily: 'var(--font-sans)', fontSize: 12, color: '#2a2035', zIndex: 2 }}>
+              📍 {THEME.spot.area} 근처
+            </span>
+            <span style={{ position: 'absolute', bottom: 10, left: 10, padding: '7px 12px', borderRadius: 10, background: 'var(--purple-500)', fontFamily: 'var(--font-sans)', fontSize: 12, color: '#fff', zIndex: 2 }}>
+              {selectedSpot.name} 선택됨 ✓
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {NEARBY_SPOTS.map((spot) => {
+              const sel = spot.id === selectedSpotId
+              return (
+                <button
+                  key={spot.id}
+                  onClick={() => handleSelectSpot(spot)}
+                  style={{
+                    textAlign: 'left',
+                    padding: 12,
+                    minHeight: 92,
+                    borderRadius: 14,
+                    border: sel ? '1px solid var(--purple-500)' : '0.5px solid var(--border-default)',
+                    background: sel ? '#dff77e' : 'var(--bg-card)',
+                    fontFamily: 'var(--font-sans)',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    transition: 'background 0.15s ease',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                    <span>☕</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-purple)' }}>{sel ? '✓' : '선택'}</span>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 700 }}>{spot.name}</div>
+                    <div style={{ marginTop: 2, fontSize: 11, color: 'var(--text-secondary)' }}>{THEME.spot.area} / 거리 정보 확인 전</div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+
+          <button className={`${styles.certBtn} ttPress`} onClick={() => setStage('convert')}>
+            {selectedSpot.name} 선택 · 미션 보기 →
+          </button>
+          <p style={{ margin: 0, textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-secondary)' }}>
+            다음 화면에서 원문과 힌트를 함께 볼 수 있어요.
+          </p>
+        </div>
       )}
 
       {stage === 'convert' && (
@@ -615,7 +693,7 @@ export default function ThemeCycle({
           </div>
 
           <button
-            className="glass-card"
+            className="glass-card ttPress"
             style={{ border: 'none', padding: '12px 0', fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--text-primary)' }}
             onClick={triggerWriteUpload}
           >
@@ -631,7 +709,7 @@ export default function ThemeCycle({
           </button>
 
           <button
-            className={styles.certBtn}
+            className={`${styles.certBtn} ttPress`}
             style={{ opacity: photo ? 1 : 0.45 }}
             disabled={!photo}
             onClick={finishPhoto}
@@ -706,7 +784,7 @@ export default function ThemeCycle({
             </div>
 
             <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed var(--border-default)', display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>
-              <span>{THEME.spot.name} / {THEME.spot.area}</span>
+              <span>{selectedSpot.name} / {THEME.spot.area}</span>
               <span>MY SENTENCE · {String(cardNo).padStart(3, '0')}</span>
             </div>
           </div>
@@ -718,13 +796,13 @@ export default function ThemeCycle({
 
           <div style={{ display: 'flex', gap: 8 }}>
             <button
-              className="glass-card"
+              className="glass-card ttPress"
               style={{ flex: 1, border: 'none', padding: '12px 0', fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--text-primary)' }}
               onClick={onClose}
             >
               미션으로
             </button>
-            <a href="/my" className={styles.certBtn} style={{ flex: 2, textAlign: 'center', textDecoration: 'none', display: 'block' }}>
+            <a href="/my" className={`${styles.certBtn} ttPress`} style={{ flex: 2, textAlign: 'center', textDecoration: 'none', display: 'block' }}>
               필사 기록 보기 →
             </a>
           </div>

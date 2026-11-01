@@ -14,6 +14,8 @@ export interface MissionSet {
   english: string
   sentence: string
   bridge: string
+  sentenceMark: string
+  task: string
   mission: { before: string; highlight: string; tail: string }
   hints: HintWord[]
 }
@@ -21,6 +23,8 @@ export interface MissionSet {
 export const MISSION_SETS: MissionSet[] = [
   {
     id: 'confirm',
+    sentenceMark: '정확해지는 일이다.',
+    task: '확인하고 답하기',
     korean: '확인',
     hanja: '確認',
     english: 'CONFIRM',
@@ -35,6 +39,8 @@ export const MISSION_SETS: MissionSet[] = [
   },
   {
     id: 'scope',
+    sentenceMark: '어디를 고칠지가 숨어 있다.',
+    task: '범위 좁혀 되묻기',
     korean: '범위',
     hanja: '範圍',
     english: 'SCOPE',
@@ -49,6 +55,8 @@ export const MISSION_SETS: MissionSet[] = [
   },
   {
     id: 'boundary',
+    sentenceMark: '다음의 가능성을 남기며 할 수 있다.',
+    task: '대안 남기며 거절하기',
     korean: '경계',
     hanja: '境界',
     english: 'BOUNDARY',
@@ -63,6 +71,8 @@ export const MISSION_SETS: MissionSet[] = [
   },
   {
     id: 'pace',
+    sentenceMark: '서두르는 일은 다르다.',
+    task: '인정하고 일정 알리기',
     korean: '속도',
     hanja: '速度',
     english: 'PACE',
@@ -77,6 +87,8 @@ export const MISSION_SETS: MissionSet[] = [
   },
   {
     id: 'clarity',
+    sentenceMark: '기다림을 끝낸다.',
+    task: '받았다고 알리기',
     korean: '명료',
     hanja: '明瞭',
     english: 'CLARITY',
@@ -91,6 +103,8 @@ export const MISSION_SETS: MissionSet[] = [
   },
   {
     id: 'transition',
+    sentenceMark: '사라지는 것은 아니다.',
+    task: '방향 바꿔 설명하기',
     korean: '전환',
     hanja: '轉換',
     english: 'TRANSITION',
