@@ -10,7 +10,7 @@ import {
   saveThemeRecord,
   loadArchiveCount,
 } from '@/lib/themeRecord'
-import { addWritingRecord } from '@/lib/tutone-records'
+import { addWritingRecord, getWritingRecords } from '@/lib/tutone-records'
 import { getTodaySet } from '@/lib/missionSets'
 
 declare global {
@@ -47,6 +47,37 @@ type Stage = 'hunt' | 'stamp' | 'write' | 'convert' | 'photo' | 'collect'
 
 // 종이 카드가 한 장씩 넘어오는 전환
 const paperStyle: React.CSSProperties = { animation: 'paperIn 0.38s cubic-bezier(0.2, 0.8, 0.2, 1)' }
+
+function FlipIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 12a9 9 0 1 1-3-6.7L21 8" />
+      <path d="M21 3v5h-5" />
+    </svg>
+  )
+}
+
+function Sticker({ children, rotate = -4 }: { children: React.ReactNode; rotate?: number }) {
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        padding: '5px 10px',
+        background: '#dff77e',
+        color: '#2a2035',
+        fontFamily: 'var(--font-mono)',
+        fontSize: 11,
+        fontWeight: 600,
+        letterSpacing: '0.04em',
+        borderRadius: 4,
+        transform: `rotate(${rotate}deg)`,
+        boxShadow: '0 1px 3px rgba(42, 32, 53, 0.2)',
+      }}
+    >
+      {children}
+    </span>
+  )
+}
 
 function StepBar({ current }: { current: 1 | 2 | 3 | 4 }) {
   const labels = ['장소', '쓰기', '사진', '완료']
@@ -129,7 +160,8 @@ export default function ThemeCycle({
     spot: { ...THEME_BASE.spot, sentence: todaySet.sentence },
   }
   const [stage, setStage] = useState<Stage>(initialStage)
-  const [openedHints, setOpenedHints] = useState<string[]>([])
+  const [activeHint, setActiveHint] = useState<string | null>(null)
+  const [cardNo, setCardNo] = useState(1)
   const [usedWords, setUsedWords] = useState<string[]>([])
   const [collected, setCollected] = useState<string[]>([])
   const [photo, setPhoto] = useState<string | null>(null)
@@ -257,7 +289,7 @@ export default function ThemeCycle({
   }
 
   function toggleHint(word: string) {
-    setOpenedHints((cur) => (cur.includes(word) ? cur.filter((w) => w !== word) : cur.concat(word)))
+    setActiveHint((cur) => (cur === word ? null : word))
   }
 
   // '이 표현을 썼어요'를 직접 누른 표현만 수집한다 (카드를 열어본 것만으로는 수집하지 않음)
@@ -281,6 +313,7 @@ export default function ThemeCycle({
       expressions: words,
     })
     setCollected(words)
+    setCardNo(getWritingRecords().length)
     setStage('collect')
   }
 
@@ -411,93 +444,106 @@ export default function ThemeCycle({
       {stage === 'convert' && (
         <div className={styles.sheet} style={{ ...paperStyle, padding: '20px 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <StepBar current={2} />
-          <div>
-            <span className="label-mono">MAKE IT YOURS</span>
-            <p style={{ marginTop: 6, fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 300, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              {todaySet.bridge}
-            </p>
+          <span className="label-mono">MAKE IT YOURS / 01</span>
+          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 28, fontWeight: 800, lineHeight: 1.25, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
+            회사에서는
+            <br />
+            어떻게 말할까?
           </div>
 
-          <div style={{ padding: 12, borderRadius: 'var(--radius-md)', background: 'var(--glass-purple)', border: '0.5px solid var(--border-subtle)' }}>
-            <span className="label-mono">오늘의 문장</span>
-            <p style={{ margin: '6px 0 0', fontFamily: 'var(--font-sans)', fontSize: 14, lineHeight: 1.6, color: 'var(--text-primary)' }}>
+          <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'var(--glass-purple-hover)', border: '0.5px solid var(--border-subtle)' }}>
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--text-purple)' }}>오늘의 문장</span>
+            <p style={{ margin: '6px 0 0', fontFamily: 'var(--font-sans)', fontSize: 15, lineHeight: 1.6, color: 'var(--text-primary)' }}>
               {THEME.spot.sentence}
             </p>
           </div>
 
-          <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.6 }}>
-            {todaySet.mission}
-          </p>
+          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 15, lineHeight: 1.9, color: 'var(--text-secondary)' }}>
+            <div>{todaySet.mission.before}</div>
+            <div>
+              <mark style={{ background: '#dff77e', color: 'var(--text-primary)', fontWeight: 500, padding: '2px 4px', borderRadius: 3 }}>
+                {todaySet.mission.highlight}
+              </mark>{' '}
+              을
+            </div>
+            <div>{todaySet.mission.tail}</div>
+          </div>
 
           <div>
-            <span className="label-mono">막히면 뒤집어봐요 · 힌트는 선택</span>
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-secondary)' }}>막히면 뒤집어봐요. 힌트는 선택!</span>
             <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
               {todaySet.hints.map((h) => {
-                const open = openedHints.includes(h.word)
+                const active = activeHint === h.word
                 const used = usedWords.includes(h.word)
                 return (
-                  <div
+                  <button
                     key={h.word}
                     onClick={() => toggleHint(h.word)}
-                    role="button"
                     style={{
                       flex: 1,
-                      minHeight: 150,
-                      padding: 10,
+                      height: 76,
                       display: 'flex',
                       flexDirection: 'column',
-                      justifyContent: open ? 'space-between' : 'center',
-                      textAlign: open ? 'left' : 'center',
-                      borderRadius: 'var(--radius-md)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      borderRadius: 14,
                       border: used ? '1px solid var(--purple-500)' : '0.5px solid var(--border-default)',
-                      background: used ? 'var(--glass-purple-hover)' : open ? 'var(--bg-elevated)' : 'var(--bg-card)',
+                      background: active ? '#dff77e' : 'var(--bg-card)',
                       fontFamily: 'var(--font-sans)',
                       color: 'var(--text-primary)',
                       cursor: 'pointer',
                     }}
                   >
-                    {open ? (
-                      <>
-                        <div>
-                          <div style={{ fontSize: 12, fontWeight: 700 }}>{h.word}</div>
-                          <div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.5, color: 'var(--text-secondary)' }}>{h.meaning}</div>
-                          <div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.5 }}>&ldquo;{h.example}&rdquo;</div>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            toggleUsed(h.word)
-                          }}
-                          style={{
-                            marginTop: 8,
-                            padding: '6px 0',
-                            borderRadius: 999,
-                            border: used ? 'none' : '0.5px solid var(--border-default)',
-                            background: used ? 'var(--purple-500)' : 'var(--bg-card)',
-                            color: used ? '#fff' : 'var(--text-primary)',
-                            fontSize: 11,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {used ? '✓ 썼어요' : '이 표현을 썼어요'}
-                        </button>
-                      </>
-                    ) : (
-                      <div style={{ fontSize: 16, fontWeight: 600 }}>
-                        {h.word} ↻{used ? <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-purple)' }}>✓ 썼어요</div> : null}
-                      </div>
-                    )}
-                  </div>
+                    <span style={{ fontSize: 16, fontWeight: 700 }}>{h.word}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: used ? 'var(--text-purple)' : 'var(--text-secondary)' }}>
+                      {used ? '✓ 썼어요' : '뜻 보기'} <FlipIcon />
+                    </span>
+                  </button>
                 )
               })}
             </div>
-            <p style={{ margin: '8px 0 0', fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 300, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              어려운 단어를 꼭 넣을 필요는 없어요. 뜻이 잘 전달되면 그것도 좋은 문장이에요.
+
+            {activeHint && (
+              <div style={{ marginTop: 10, fontFamily: 'var(--font-sans)', fontSize: 12, lineHeight: 1.6, color: 'var(--text-primary)' }}>
+                {(() => {
+                  const h = todaySet.hints.find((x) => x.word === activeHint)!
+                  const used = usedWords.includes(h.word)
+                  return (
+                    <>
+                      <div>
+                        <b>{h.word}</b>: {h.meaning} &ldquo;{h.example}&rdquo;
+                      </div>
+                      <button
+                        onClick={() => toggleUsed(h.word)}
+                        style={{
+                          marginTop: 8,
+                          padding: '6px 14px',
+                          borderRadius: 999,
+                          border: used ? 'none' : '0.5px solid var(--border-default)',
+                          background: used ? 'var(--purple-500)' : 'var(--bg-card)',
+                          color: used ? '#fff' : 'var(--text-primary)',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {used ? '✓ 썼어요' : '이 표현을 썼어요'}
+                      </button>
+                    </>
+                  )
+                })()}
+              </div>
+            )}
+
+            <p style={{ margin: '12px 0 0', fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 300, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+              어려운 단어를 꼭 넣을 필요는 없어요.
+              <br />
+              뜻이 잘 전달되면, 그것도 좋은 문장이에요.
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 0', borderTop: '0.5px solid var(--border-subtle)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '12px 0 2px', borderTop: '1px dashed var(--border-default)' }}>
             <span style={{ fontSize: 16 }}>✏️</span>
             <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 13, lineHeight: 1.6, color: 'var(--text-primary)' }}>
               바꾼 문장을 종이에 써주세요.
@@ -578,56 +624,75 @@ export default function ThemeCycle({
         <div className={styles.sheet} style={{ ...paperStyle, padding: '20px 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <StepBar current={4} />
           <div>
-            <span className="label-mono">MADE BY YOU ✓</span>
-            <div style={{ marginTop: 6, fontFamily: 'var(--font-sans)', fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4 }}>
-              오늘의 한 장, 완성.
-            </div>
+            <Sticker>MADE BY YOU ✓</Sticker>
+          </div>
+          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 28, fontWeight: 800, lineHeight: 1.25, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
+            오늘의 한 장,
+            <br />
+            완성.
           </div>
 
           <div
-            className="glass-card"
-            style={{ width: '100%', boxSizing: 'border-box', padding: 16, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 12 }}
+            style={{
+              position: 'relative',
+              padding: '18px 16px 14px',
+              borderRadius: 24,
+              background: 'var(--glass-purple-hover)',
+              border: '0.5px solid var(--border-default)',
+              boxShadow: '0 6px 0 rgba(96, 64, 160, 0.15)',
+            }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <span className="label-mono">TUTONE / WORD CLUB</span>
-              <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 600, color: 'var(--text-purple)' }}>
-                {THEME.korean} {THEME.hanja}
-              </span>
+              <Sticker rotate={4}>{THEME.korean} ✳</Sticker>
             </div>
-            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 15, lineHeight: 1.6, color: 'var(--text-primary)' }}>
-              &ldquo;{THEME.spot.sentence}&rdquo;
-            </div>
-            {photo && (
-              <div
-                style={{
-                  width: '100%',
-                  aspectRatio: '4 / 3',
-                  borderRadius: 'var(--radius-md)',
-                  background: `url("${photo}") center/cover`,
-                  border: '0.5px solid var(--border-subtle)',
-                }}
-              />
-            )}
-            {collected.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {collected.map((w) => (
-                  <span
-                    key={w}
-                    style={{ padding: '4px 10px', borderRadius: 999, background: 'var(--glass-purple-hover)', fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 600, color: 'var(--text-purple)' }}
-                  >
-                    {w}
-                  </span>
-                ))}
+
+            <div
+              style={{
+                marginTop: 12,
+                padding: 14,
+                borderRadius: 14,
+                background: '#fffdf6',
+                boxShadow: '0 2px 8px rgba(42, 32, 53, 0.12)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+              }}
+            >
+              {photo && (
+                <div
+                  style={{
+                    width: '100%',
+                    aspectRatio: '4 / 3',
+                    borderRadius: 8,
+                    background: `url("${photo}") center/cover`,
+                    border: '0.5px solid rgba(42, 32, 53, 0.1)',
+                  }}
+                />
+              )}
+              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 14, lineHeight: 1.6, color: '#2a2035' }}>
+                &ldquo;{THEME.spot.sentence}&rdquo;
               </div>
-            )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>
+              {collected.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {collected.map((w) => (
+                    <mark key={w} style={{ background: '#dff77e', color: '#2a2035', padding: '2px 8px', borderRadius: 3, fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 600 }}>
+                      {w}
+                    </mark>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed var(--border-default)', display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>
               <span>{THEME.spot.name} / {THEME.spot.area}</span>
-              <span>MY SENTENCE</span>
+              <span>MY SENTENCE · {String(cardNo).padStart(3, '0')}</span>
             </div>
           </div>
 
-          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            {collected.length > 0 ? `이번에 수집한 표현 ${collected.length}개를 필사 기록에 저장했어요.` : '필사 기록에 저장했어요.'}
+          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--text-purple)', lineHeight: 1.8 }}>
+            <div>✓ 내 사진으로 만든 작품 카드예요.</div>
+            <div>✓ {collected.length > 0 ? `수집한 표현 ${collected.length}개와 함께 ` : ''}필사 기록에 추가했어요.</div>
           </div>
 
           <div style={{ display: 'flex', gap: 8 }}>
@@ -638,11 +703,7 @@ export default function ThemeCycle({
             >
               미션으로
             </button>
-            <a
-              href="/my"
-              className={styles.certBtn}
-              style={{ flex: 2, textAlign: 'center', textDecoration: 'none', display: 'block' }}
-            >
+            <a href="/my" className={styles.certBtn} style={{ flex: 2, textAlign: 'center', textDecoration: 'none', display: 'block' }}>
               필사 기록 보기 →
             </a>
           </div>
