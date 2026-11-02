@@ -7,6 +7,7 @@ import styles from './missions.module.css'
 import { ThemeRecord, loadThemeRecord } from '@/lib/themeRecord'
 
 import { getTodaySet } from '@/lib/missionSets'
+import MobileOnlyModal from '@/components/MobileOnlyModal'
 
 const MISSIONS = [
   {
@@ -67,6 +68,22 @@ export default function MissionsPage() {
   const [initialStage, setInitialStage] = useState<'hunt' | 'write'>('hunt')
   const [record, setRecord] = useState<ThemeRecord>({ hunt: false, write: false })
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [isDesktop, setIsDesktop] = useState(false)
+  const [gateFor, setGateFor] = useState<string | null>(null)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px) and (hover: hover)')
+    const apply = () => setIsDesktop(mq.matches)
+    apply()
+    mq.addEventListener('change', apply)
+    // QR로 들어온 경우(?mission=hunt|write) 해당 미션을 바로 연다
+    const m = new URLSearchParams(window.location.search).get('mission')
+    if (!mq.matches && (m === 'hunt' || m === 'write')) {
+      setInitialStage(m)
+      setView('theme')
+    }
+    return () => mq.removeEventListener('change', apply)
+  }, [])
 
   useEffect(() => {
     setRecord(loadThemeRecord())
@@ -82,6 +99,10 @@ export default function MissionsPage() {
   function handleCardClick(id: string) {
     if (!CONTENT_READY[id]) {
       setView('coming-soon')
+      return
+    }
+    if ((id === 'hunt' || id === 'write') && isDesktop) {
+      setGateFor(id)
       return
     }
     if (id === 'hunt' || id === 'write') {
@@ -109,6 +130,7 @@ export default function MissionsPage() {
 
   return (
     <div className={styles.page}>
+      {gateFor && <MobileOnlyModal missionId={gateFor} onClose={() => setGateFor(null)} />}
       <div className={styles.header}>
         <span className={styles.headerEyebrow}>MISSIONS</span>
         <h1 className={styles.headerTitle}>오늘의 미션</h1>

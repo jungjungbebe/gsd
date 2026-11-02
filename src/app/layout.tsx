@@ -5,6 +5,7 @@ import PageTransition from '@/components/PageTransition'
 import AutoLogout from '@/components/AutoLogout'
 import { Analytics } from '@vercel/analytics/next'
 import SiteFooter from '@/components/SiteFooter'
+import DesktopNav from '@/components/DesktopNav'
 export const metadata: Metadata = {
   metadataBase: new URL('https://gsd-mauve.vercel.app'),
   title: '투톤 — 비즈니스 한국어 톤 체크',
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet" />
       </head>
       <body className="no-scrollbar" style={{ fontFamily: "'Pretendard Variable', 'DM Sans', -apple-system, sans-serif", color: 'var(--text-primary)' }}>
+        <DesktopNav />
         <PageTransition>{children}</PageTransition>
         <SiteFooter />
         <BottomNav />

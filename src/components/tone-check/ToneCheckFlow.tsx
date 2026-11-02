@@ -424,11 +424,11 @@ export default function ToneCheckFlow() {
   }, [])
 
   return (
-    <main style={{ minHeight: '100vh', maxWidth: 430, margin: '0 auto', paddingBottom: 100, display: 'flex', flexDirection: 'column' }}>
+    <main className="tt-main" style={{ minHeight: '100vh', maxWidth: 430, margin: '0 auto', paddingBottom: 100, display: 'flex', flexDirection: 'column' }}>
       {savePrompt}
       {/* 헤더: /service .header 규격과 동일 (수정 없음) */}
       <FadeIn show={show.header}>
-        <header style={{ padding: '48px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <header className="tt-header" style={{ padding: '48px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <img src="/tutone-logo.svg" alt="Tutone" style={{ height: 24, width: 'auto', objectFit: 'contain', opacity: 0.7 }} />
           <div
             style={{
@@ -463,6 +463,7 @@ export default function ToneCheckFlow() {
       >
         {stage === 'input' && (
           <div
+            className="tt-input"
             style={{
               flex: 1,
               display: 'flex',
@@ -475,6 +476,7 @@ export default function ToneCheckFlow() {
           >
             {/* HeroGroup: 말풍선 + sphere + TONE CHECK + heading + description */}
             <div
+              className="tt-hero"
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -535,6 +537,7 @@ export default function ToneCheckFlow() {
 
             {/* InputGroup: composer + privacy helper */}
             <div
+              className="tt-inputgroup"
               style={{
                 opacity: show.content ? 1 : 0,
                 transform: show.content ? 'translate3d(0,0,0)' : 'translate3d(0,16px,0)',
@@ -609,6 +612,7 @@ export default function ToneCheckFlow() {
 
             {/* DiscoveryGroup: example prompts (responsive wrap) + shortcut cards */}
             <div
+              className="tt-disc"
               style={{
                 opacity: show.content ? 1 : 0,
                 transform: show.content ? 'translate3d(0,0,0)' : 'translate3d(0,16px,0)',
@@ -709,7 +713,7 @@ export default function ToneCheckFlow() {
         )}
 
         {stage === 'result' && result && (
-          <div className="px-5 flex flex-col gap-3">
+          <div className="tt-result px-5 flex flex-col gap-3">
             {/* CHECK: 입력 메시지 접힌 상태 */}
             <div
               className="text-[11px] px-3 py-2 flex items-center justify-between gap-2"
