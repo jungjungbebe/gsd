@@ -254,13 +254,13 @@ export default function MyPage() {
         ) : activeTab === 'hunt' && hunts.length > 0 ? (
           <div className={styles.savedList}>
             <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-secondary)', padding: '0 4px' }}>
-              발견한 표현 {Array.from(new Set(hunts.map((h) => h.expression))).length}개 · 카드 {hunts.length}장
+              발견한 표현 {Array.from(new Set(hunts.filter((h) => h.category !== '자유 수집').map((h) => h.expression))).length}개 · 카드 {hunts.filter((h) => h.category !== '자유 수집').length}장 · 자유 수집 {hunts.filter((h) => h.category === '자유 수집').length}장
             </div>
             {hunts.map((h, i) => (
               <div key={h.id} className={styles.savedCard}>
                 <div className={styles.savedTop}>
                   <span className={styles.savedInput}>
-                    #{String(hunts.length - i).padStart(3, '0')} {h.expression}
+                    {h.category === '자유 수집' ? '자유 수집' : `#${String(hunts.filter((x) => x.category !== '자유 수집').length - hunts.slice(0, i).filter((x) => x.category !== '자유 수집').length).padStart(3, '0')} ${h.expression}`}
                   </span>
                   <span className={styles.savedTime}>{timeAgo(h.date)}</span>
                 </div>

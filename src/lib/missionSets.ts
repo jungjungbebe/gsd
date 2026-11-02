@@ -18,13 +18,29 @@ export interface MissionSet {
   task: string
   mission: { before: string; highlight: string; tail: string }
   hints: HintWord[]
-  hunt: { label: string; sub: string; words: string[] }
+  hunt: {
+    label: string // 헤드라인용 이름 (예: 기한)
+    type: string // 결과의 '표현 유형'
+    sub: string
+    words: string[] // 발견 예시 (힌트)
+    matchRule: string // 성공 판정 기준 (AI에 전달)
+    exclude: string // 제외 기준
+    questions: string[] // 결과 요약 질문
+  }
 }
 
 export const MISSION_SETS: MissionSet[] = [
   {
     id: 'confirm',
-    hunt: { label: '확인할 일', sub: '안내문이나 간판에서 문의, 확인, 접수 방법을 발견해보세요.', words: ['확인', '문의', '안내', '접수', '신청'] },
+    hunt: {
+      label: '확인하거나 연락할 내용',
+      type: '문의·확인',
+      sub: '안내문이나 간판에서 문의, 확인, 접수 방법을 발견해보세요.',
+      words: ['문의 바랍니다', '접수 안내', '확인 후 연락'],
+      matchRule: '독자에게 무엇을 확인하거나 어디에 문의·연락해야 하는지 안내하는 문장',
+      exclude: '콘텐츠 제목, 영상 제목, 상품명, 사람 이름, 감상 문구, 일반 명사',
+      questions: ['무엇을 확인하나요', '어디에 문의하나요'],
+    },
     sentenceMark: '정확해지는 일이다.',
     task: '확인하고 답하기',
     korean: '확인',
@@ -41,7 +57,15 @@ export const MISSION_SETS: MissionSet[] = [
   },
   {
     id: 'scope',
-    hunt: { label: '범위와 조건', sub: '안내문에서 대상, 제외, 조건이 적힌 문구를 발견해보세요.', words: ['한정', '제외', '포함', '조건', '대상'] },
+    hunt: {
+      label: '조건',
+      type: '조건',
+      sub: '특정한 경우에만 적용되는 내용을 안내문에서 발견해보세요.',
+      words: ['우천 시', '미성년자 제외', '2인 이상'],
+      matchRule: '특정한 경우나 대상에만 적용되는 조건과 그 결과를 알려주는 문장',
+      exclude: '콘텐츠 제목, 영상 제목, 상품명, 사람 이름, 감상 문구, 일반 명사',
+      questions: ['어떤 경우인가요', '그때 어떻게 되나요'],
+    },
     sentenceMark: '어디를 고칠지가 숨어 있다.',
     task: '범위 좁혀 되묻기',
     korean: '범위',
@@ -58,7 +82,15 @@ export const MISSION_SETS: MissionSet[] = [
   },
   {
     id: 'boundary',
-    hunt: { label: '하면 안 되는 일', sub: '간판이나 표지판에서 금지, 제한 사항을 발견해보세요.', words: ['금지', '제한', '불가', '출입', '주의'] },
+    hunt: {
+      label: '하면 안 되는 일',
+      type: '금지·주의',
+      sub: '간판이나 표지판에서 금지, 제한 사항을 발견해보세요.',
+      words: ['출입 금지', '촬영 금지', '주차 불가'],
+      matchRule: '하면 안 되거나 제한되는 행동을 알려주는 문장',
+      exclude: '콘텐츠 제목, 영상 제목, 상품명, 사람 이름, 감상 문구, 일반 명사',
+      questions: ['무엇을 하면 안 되나요', '예외가 있나요'],
+    },
     sentenceMark: '다음의 가능성을 남기며 할 수 있다.',
     task: '대안 남기며 거절하기',
     korean: '경계',
@@ -75,7 +107,15 @@ export const MISSION_SETS: MissionSet[] = [
   },
   {
     id: 'pace',
-    hunt: { label: '기한과 일정', sub: '안내문이나 간판에서 마감일, 운영 시간, 신청 기한을 발견해보세요.', words: ['마감', '당일', '상시', '사전', '기한'] },
+    hunt: {
+      label: '기한',
+      type: '기한',
+      sub: '안내문이나 간판에서 마감일, 신청 기한, 종료 시점을 발견해보세요.',
+      words: ['접수 마감', '사전 예약', '오후 6시까지'],
+      matchRule: '날짜, 시간 또는 종료 시점이 포함되어 언제까지/언제 해야 하는지 알려주는 문장',
+      exclude: '단순 영업시간, 영상 재생시간, 게시일, 콘텐츠 제목, 상품명, 일반 명사',
+      questions: ['무엇을 해야 하나요', '언제까지인가요'],
+    },
     sentenceMark: '서두르는 일은 다르다.',
     task: '인정하고 일정 알리기',
     korean: '속도',
@@ -92,7 +132,15 @@ export const MISSION_SETS: MissionSet[] = [
   },
   {
     id: 'clarity',
-    hunt: { label: '꼭 알려야 할 내용', sub: '공지문이나 게시판에서 꼭 읽어야 할 전달 사항을 발견해보세요.', words: ['공지', '참고', '필독', '유의', '안내'] },
+    hunt: {
+      label: '해야 할 일',
+      type: '해야 할 일',
+      sub: '안내문에서 준비하거나 신청해야 할 내용을 발견해보세요.',
+      words: ['신분증 지참', '사전 예약', '접수 후 입장'],
+      matchRule: '독자에게 준비하거나 신청하는 등 구체적인 행동을 요구하거나 안내하는 문장',
+      exclude: '콘텐츠 제목, 영상 제목, 상품명, 사람 이름, 감상 문구, 일반 명사',
+      questions: ['무엇을 해야 하나요', '언제 하나요'],
+    },
     sentenceMark: '기다림을 끝낸다.',
     task: '받았다고 알리기',
     korean: '명료',
@@ -109,7 +157,15 @@ export const MISSION_SETS: MissionSet[] = [
   },
   {
     id: 'transition',
-    hunt: { label: '바뀌는 내용', sub: '간판이나 공사 안내에서 변경, 이전, 임시 운영 문구를 발견해보세요.', words: ['변경', '이전', '리뉴얼', '임시', '개편'] },
+    hunt: {
+      label: '바뀌는 내용',
+      type: '변경 안내',
+      sub: '간판이나 공사 안내에서 변경, 이전, 임시 운영 문구를 발견해보세요.',
+      words: ['임시 휴무', '위치 이전', '운영 시간 변경'],
+      matchRule: '이전과 달라지거나 임시로 바뀐 내용과 시점을 알려주는 문장',
+      exclude: '콘텐츠 제목, 영상 제목, 상품명, 사람 이름, 감상 문구, 일반 명사',
+      questions: ['무엇이 바뀌나요', '언제부터인가요'],
+    },
     sentenceMark: '사라지는 것은 아니다.',
     task: '방향 바꿔 설명하기',
     korean: '전환',

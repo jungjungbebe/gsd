@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { clientIp, rateLimit } from '@/lib/rate-limit'
+import { MISSION_SETS } from '@/lib/missionSets'
 
 export const maxDuration = 30
 
 const MAX_IMAGE_CHARS = 3_000_000
-const CATEGORIES = ['기한', '조건', '금지', '요청', '책임', '변경', '안내']
+const MODEL = process.env.HUNT_MODEL || 'gpt-4o-mini'
 
 interface Box {
   x: number
@@ -29,6 +30,8 @@ function normBox(b: any): Box | null {
   return { x, y, w, h }
 }
 
+const compact = (t: string) => t.replace(/\s+/g, '')
+
 export async function POST(req: Request) {
   if (!rateLimit('hunt:' + clientIp(req), 6)) {
     return NextResponse.json({ error: '요청이 너무 많아요. 잠시 후 다시 시도해 주세요.' }, { status: 429 })
@@ -45,9 +48,10 @@ export async function POST(req: Request) {
   if (!/^data:image\/(jpeg|png|webp);base64,/.test(image) || image.length > MAX_IMAGE_CHARS) {
     return NextResponse.json({ error: '사진을 읽을 수 없어요. 다시 찍어 주세요.' }, { status: 400 })
   }
-  const targets: string[] = Array.isArray(body?.targets)
-    ? body.targets.filter((t: unknown) => typeof t === 'string' && t.length <= 12).slice(0, 8)
-    : []
+  // 미션 설정은 서버에서 id로 찾는다 (서버 시간대와 사용자 시간대가 달라도 어긋나지 않게, 클라이언트가 오늘의 세트 id를 보낸다)
+  const set = MISSION_SETS.find((s) => s.id === body?.setId)
+  if (!set) return NextResponse.json({ error: '미션 정보를 찾을 수 없어요.' }, { status: 400 })
+  const h = set.hunt
 
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey || apiKey.startsWith('placeholder')) {
@@ -55,41 +59,47 @@ export async function POST(req: Request) {
   }
 
   const system = [
-    '당신은 길거리 사진 속 한국어 글자를 읽고, 직장인이 이해하기 쉬운 말로 풀어주는 도우미입니다.',
-    '이 앱은 실제 거리의 안내문·간판·공지·표지판·메뉴판·게시물에서 "해야 할 일, 조건, 기한, 금지, 변경" 같은 실용적인 안내 표현을 찾는 미션입니다.',
-    '먼저 사진이 그런 실물 안내 글자를 담고 있는지 판단하세요. 휴대폰·TV·컴퓨터 화면을 찍은 사진, 영상 썸네일, SNS·유튜브 화면, 연예·광고 포스터, 단순 이름·상호만 있는 사진이면 found를 false로 하고 reason을 "not_notice"로 하세요. 글자가 흐리거나 읽을 수 없으면 reason을 "unreadable"로 하세요.',
-    targets.length ? `오늘의 표현군: ${targets.join(', ')}. 이 중 하나가 들어간 문구가 있으면 반드시 그 문구를 고르세요. 없으면 다른 실용적 안내 표현을 고르세요.` : '',
+    '당신은 길거리 사진 속 한국어 글자를 읽고, 오늘의 미션과 맞는지 엄격하게 판정한 뒤 쉬운 말로 풀어주는 도우미입니다.',
+    '',
+    `오늘의 미션: ${h.label}을(를) 알려주는 표현 찾기`,
+    `성공 판정 기준: ${h.matchRule}`,
+    `제외 기준: ${h.exclude}`,
+    '',
+    '진행 순서:',
+    '1. 사진 속 한국어 문장을 읽습니다. (read)',
+    '2. 단어가 들어 있는지가 아니라 문장의 의사소통 기능으로 오늘의 미션과 맞는지 판정합니다. (mission_match)',
+    '3. 맞지 않으면 즉시 중단합니다. expression, plain_meaning, answers는 null로 두고 reason에 한국어 한 문장으로 이유를 씁니다. (예: "이 문장은 콘텐츠 제목으로 보여요.")',
+    '4. 맞을 때만 expression(문장 안에 실제로 있는, 뜻이 완결된 구절. 일반 명사 하나만 뽑지 않음)과 plain_meaning, answers를 작성합니다.',
+    '',
     '규칙:',
-    '- expression은 사람 이름·명사·상호가 아니라, 무엇을 해야 하는지/조건/기한/금지/변경을 알려주는 표현(예: 사전 예약, 접수 마감, 출입 금지)이어야 합니다. 그런 표현이 없으면 found를 false로 하세요.',
-    '- sentence는 사진에 보이는 글자를 그대로 옮기세요. 없는 글자를 지어내지 마세요. 80자 이내.',
-    '- expression은 sentence 안에 실제로 있는 핵심 표현 1~2개 단어입니다.',
-    '- matchesTarget은 expression이 오늘의 표현군과 같거나 거의 같은 뜻이면 true.',
-    '- easy는 sentence를 쉬운 말로 풀어쓴 한 문장 (예: "방문 전에 예약해야 합니다").',
-    '- action은 읽은 사람이 해야 할 행동을 짧은 구절로 (예: "예약 여부 확인하기"). 해야 할 일이 없으면 "내용 기억해두기".',
-    `- category는 ${CATEGORIES.join(', ')} 중 하나.`,
-    '- box는 고른 문구가 있는 영역으로, 이미지 전체 대비 0~1 비율의 {x,y,w,h} (좌상단 기준)입니다.',
-    '- 사람 얼굴, 이름, 전화번호 등 개인정보는 옮기지 마세요. 읽을 수 있는 한국어 글자가 없으면 found를 false로 하세요.',
-    '- 한국어가 아닌 글자만 있어도 found는 false입니다.',
-    '반드시 JSON만 반환: {"found":boolean,"reason":"","sentence":"","expression":"","matchesTarget":boolean,"easy":"","action":"","category":"","box":{"x":0,"y":0,"w":0,"h":0}}',
-  ]
-    .filter(Boolean)
-    .join('\n')
+    '- 실물 안내문·간판·공지·표지판·메뉴판·게시물만 대상입니다. 휴대폰·TV·컴퓨터 화면, 영상·SNS·유튜브 화면, 콘텐츠·영상 제목, 사람 이름, 상품명, 연예·광고 포스터, 일반 명사, 문맥 없는 단어는 모두 미션 불일치입니다.',
+    '- 확신이 낮으면 미션 불일치로 처리합니다.',
+    '- 읽을 수 있는 한국어 글자가 없거나 흐려서 읽을 수 없으면 read를 빈 문자열로 두고 mission_match는 false입니다.',
+    '- read와 expression은 사진에 보이는 글자를 그대로 옮깁니다. 없는 글자를 지어내지 마세요. read는 80자 이내.',
+    '- 질문을 사실로 바꾸거나, 원문에 없는 상황·행동·기한·조건·의도를 추측하지 마세요.',
+    '- plain_meaning은 원문 의미를 바꾸지 않고 쉬운 말로 풀어쓴 한 문장입니다.',
+    `- answers는 다음 질문 각각에 대해 {"q": 질문 그대로, "a": 답} 형태로 작성합니다: ${h.questions.map((q) => `"${q}"`).join(', ')}. 원문에 답이 직접 나와 있지 않으면 a는 null입니다. 지어내지 마세요.`,
+    '- box는 read에 해당하는 글자가 있는 영역으로, 이미지 전체 대비 0~1 비율의 {x,y,w,h}(좌상단 기준)입니다.',
+    '- 사람 얼굴, 이름, 전화번호 등 개인정보는 옮기지 마세요.',
+    '',
+    '반드시 JSON만 반환: {"read":"","mission_match":false,"reason":"","expression":null,"plain_meaning":null,"answers":[{"q":"","a":null}],"box":{"x":0,"y":0,"w":0,"h":0}}',
+  ].join('\n')
 
   try {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: MODEL,
         response_format: { type: 'json_object' },
-        temperature: 0.2,
-        max_tokens: 400,
+        temperature: 0.1,
+        max_tokens: 500,
         messages: [
           { role: 'system', content: system },
           {
             role: 'user',
             content: [
-              { type: 'text', text: '이 사진 속 글자를 해독해 주세요.' },
+              { type: 'text', text: '이 사진 속 글자를 판정하고 해독해 주세요.' },
               { type: 'image_url', image_url: { url: image, detail: 'high' } },
             ],
           },
@@ -105,26 +115,27 @@ export async function POST(req: Request) {
     content = content.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim()
     const p = JSON.parse(content)
 
-    if (!p?.found || typeof p.sentence !== 'string' || !p.sentence.trim()) {
-      return NextResponse.json({ found: false, reason: p?.reason === 'unreadable' ? 'unreadable' : 'not_notice' })
+    const read = typeof p?.read === 'string' ? p.read.trim().slice(0, 120) : ''
+    if (!read) return NextResponse.json({ kind: 'unreadable' })
+
+    const expression = typeof p.expression === 'string' ? p.expression.trim().slice(0, 24) : ''
+    // 미션 일치로 인정하려면 모델 판정 + 표현이 읽은 문장 안에 실제로 있어야 한다
+    if (p.mission_match !== true || !expression || !compact(read).includes(compact(expression))) {
+      const reason = typeof p?.reason === 'string' && p.reason.trim() ? p.reason.trim().slice(0, 80) : '확인하거나 행동해야 할 내용을 알려주는 표현은 아니에요.'
+      return NextResponse.json({ kind: 'mismatch', read, reason })
     }
-    const sentence = p.sentence.trim().slice(0, 120)
-    const compact = (t: string) => t.replace(/\s+/g, '')
-    const targetHit = targets.find((t) => compact(sentence).includes(compact(t)))
-    let expression = typeof p.expression === 'string' ? p.expression.trim().slice(0, 20) : ''
-    // 표현은 반드시 문장 안에 실제로 있어야 한다. 없으면 오늘의 표현군 단어, 그것도 없으면 거절
-    if (!expression || !compact(sentence).includes(compact(expression))) {
-      if (targetHit) expression = targetHit
-      else return NextResponse.json({ found: false, reason: 'not_notice' })
-    }
+
+    const answers = (Array.isArray(p.answers) ? p.answers : [])
+      .filter((a: any) => a && typeof a.q === 'string' && typeof a.a === 'string' && a.a.trim() && h.questions.includes(a.q))
+      .map((a: any) => ({ q: a.q as string, a: (a.a as string).trim().slice(0, 80) }))
+
     return NextResponse.json({
-      found: true,
-      sentence,
+      kind: 'matched',
+      read,
       expression,
-      matchesTarget: !!targetHit,
-      easy: typeof p.easy === 'string' ? p.easy.trim().slice(0, 120) : '',
-      action: typeof p.action === 'string' ? p.action.trim().slice(0, 60) : '',
-      category: CATEGORIES.includes(p.category) ? p.category : '안내',
+      plainMeaning: typeof p.plain_meaning === 'string' ? p.plain_meaning.trim().slice(0, 120) : '',
+      answers,
+      category: h.type,
       box: normBox(p.box),
     })
   } catch (e) {

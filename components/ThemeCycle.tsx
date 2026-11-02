@@ -49,7 +49,7 @@ const THEME_BASE = {
 
 const FALLBACK_SPOT: Spot = { id: 'none', name: '근처 카페', category: '', lat: THEME_BASE.spot.lat, lng: THEME_BASE.spot.lng, distM: null }
 
-type Stage = 'hunt' | 'camera' | 'scan' | 'decode' | 'found' | 'write' | 'convert' | 'photo' | 'collect'
+type Stage = 'hunt' | 'camera' | 'scan' | 'decode' | 'found' | 'mismatch' | 'write' | 'convert' | 'photo' | 'collect'
 
 // 종이 카드가 한 장씩 넘어오는 전환
 const paperStyle: React.CSSProperties = { animation: 'paperIn 0.38s cubic-bezier(0.2, 0.8, 0.2, 1)' }
@@ -162,15 +162,16 @@ async function makeThumb(dataUrl: string, maxSize = 480): Promise<string | undef
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 interface HuntResult {
-  found: boolean
-  sentence: string
+  read: string
   expression: string
-  matchesTarget: boolean
-  easy: string
-  action: string
+  plainMeaning: string
+  answers: { q: string; a: string }[]
   category: string
   box: { x: number; y: number; w: number; h: number } | null
 }
+
+const FREE_CATEGORY = '자유 수집'
+const isFree = (r: { category: string }) => r.category === FREE_CATEGORY
 
 function exampleSvg(sentence: string): string {
   const svg =
@@ -210,6 +211,8 @@ export default function ThemeCycle({
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
   const [huntResult, setHuntResult] = useState<HuntResult | null>(null)
   const [huntErr, setHuntErr] = useState('')
+  const [mismatch, setMismatch] = useState<{ read: string; reason: string } | null>(null)
+  const [freeSaved, setFreeSaved] = useState(false)
   const [camErr, setCamErr] = useState('')
   const [facing, setFacing] = useState<'environment' | 'user'>('environment')
   const [todayLabel, setTodayLabel] = useState('')
@@ -388,9 +391,13 @@ export default function ThemeCycle({
     if (scopeReady) {
       const list = getHuntRecords()
       setHuntRecords(list)
-      setArchiveCount(list.length)
+      setArchiveCount(list.filter((r) => !isFree(r)).length)
     }
   }, [scopeReady])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.scrollTo(0, 0)
+  }, [stage])
 
   useEffect(() => {
     setRecord(loadThemeRecord())
@@ -421,7 +428,7 @@ export default function ThemeCycle({
     overlaysRef.current = []
 
     if (stage === 'hunt') {
-      const pins = huntRecords.filter((r) => r.lat && r.lng)
+      const pins = huntRecords.filter((r) => r.lat && r.lng && !isFree(r))
       if (userPos) {
         const me = document.createElement('div')
         me.innerHTML = '<div style="width:16px;height:16px;border-radius:50%;background:#3b82f6;border:3px solid #fff;box-shadow:0 0 0 4px rgba(59,130,246,0.25);"></div>'
@@ -530,6 +537,8 @@ export default function ThemeCycle({
   function beginHunt(dataUrl: string) {
     setCapturedPhoto(dataUrl)
     setHuntResult(null)
+    setMismatch(null)
+    setFreeSaved(false)
     setHuntErr('')
     setHuntSavedNo(0)
     setPinCard(null)
@@ -542,26 +551,31 @@ export default function ThemeCycle({
     setHuntErr('')
     const t0 = Date.now()
     let result: HuntResult | null = null
+    let miss: { read: string; reason: string } | null = null
     let err = ''
     try {
       const res = await fetch('/api/hunt-decode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl, targets: todaySet.hunt.words }),
+        body: JSON.stringify({ image: dataUrl, setId: todaySet.id }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) err = data?.error || '해독에 실패했어요. 잠시 후 다시 시도해 주세요.'
-      else if (!data?.found)
-        err =
-          data?.reason === 'unreadable'
-            ? '글자가 잘 보이지 않아요. 글자가 크고 또렷하게 보이도록 다시 찍어보세요.'
-            : '안내문·간판·공지처럼 해야 할 일이 적힌 글자를 찍어주세요. 화면을 찍은 사진이나 이름·상호만 있는 사진은 해독하기 어려워요.'
-      else result = data as HuntResult
+      else if (data?.kind === 'unreadable')
+        err = '읽을 수 있는 한국어 글자를 찾지 못했어요. 안내문이나 간판의 글자가 크고 또렷하게 보이도록 다시 찍어보세요.'
+      else if (data?.kind === 'mismatch') miss = { read: String(data.read || ''), reason: String(data.reason || '') }
+      else if (data?.kind === 'matched') result = data as HuntResult
+      else err = '해독에 실패했어요. 잠시 후 다시 시도해 주세요.'
     } catch {
       err = '네트워크 오류가 났어요. 잠시 후 다시 시도해 주세요.'
     }
     const wait = 2000 - (Date.now() - t0)
     if (wait > 0) await sleep(wait)
+    if (miss) {
+      setMismatch(miss)
+      setStage('mismatch')
+      return
+    }
     if (!result) {
       setHuntErr(err)
       return
@@ -580,11 +594,11 @@ export default function ThemeCycle({
     const jitter = () => (Math.random() - 0.5) * 0.0006
     addHuntRecord({
       expression: huntResult.expression,
-      sentence: huntResult.sentence,
-      easy: huntResult.easy,
-      action: huntResult.action,
+      sentence: huntResult.read,
+      easy: huntResult.plainMeaning,
+      action: huntResult.answers.map((a) => `${a.q}: ${a.a}`).join(' · '),
       category: huntResult.category,
-      matched: huntResult.matchesTarget,
+      matched: true,
       area: areaLabel,
       lat: base.lat + jitter(),
       lng: base.lng + jitter(),
@@ -592,8 +606,9 @@ export default function ThemeCycle({
     })
     const list = getHuntRecords()
     setHuntRecords(list)
-    setArchiveCount(list.length)
-    setHuntSavedNo(list.length)
+    const missionCount = list.filter((r) => !isFree(r)).length
+    setArchiveCount(missionCount)
+    setHuntSavedNo(missionCount)
     const next: ThemeRecord = {
       ...record,
       hunt: true,
@@ -604,6 +619,26 @@ export default function ThemeCycle({
     try {
       saveThemeRecord(next)
     } catch {}
+  }
+
+  // 미션과 맞지 않은 사진: 개인 보관만 한다 (미션 완료·지도·집계에는 반영하지 않음)
+  async function saveFree() {
+    if (!mismatch || !capturedPhoto || freeSaved) return
+    const thumb = await makeThumb(capturedPhoto)
+    addHuntRecord({
+      expression: (mismatch.read || '사진').slice(0, 24),
+      sentence: mismatch.read,
+      easy: '',
+      action: '',
+      category: FREE_CATEGORY,
+      matched: false,
+      area: areaLabel,
+      lat: 0,
+      lng: 0,
+      photo: thumb,
+    })
+    setHuntRecords(getHuntRecords())
+    setFreeSaved(true)
   }
 
   function triggerWriteUpload() {
@@ -671,11 +706,11 @@ export default function ThemeCycle({
 
       <div className={styles.header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {(stage === 'hunt' || stage === 'found') && (
+          {(stage === 'hunt' || stage === 'found' || stage === 'mismatch') && (
             <button
               aria-label="뒤로"
               onClick={() => {
-                if (stage === 'found') setStage('hunt')
+                if (stage === 'found' || stage === 'mismatch') setStage('hunt')
                 else if (onClose) onClose()
                 else if (typeof history !== 'undefined') history.back()
               }}
@@ -687,13 +722,14 @@ export default function ThemeCycle({
           <div>
             {stage === 'hunt' && <div className={styles.sub} style={{ marginTop: 0, marginBottom: 2 }}>MISSION 01</div>}
             {stage === 'found' && <div className={styles.sub} style={{ marginTop: 0, marginBottom: 2 }}>FOUND {String(huntSavedNo || huntRecords.length + 1).padStart(2, '0')}</div>}
-            <div className={styles.title} style={stage === 'hunt' || stage === 'found' ? { fontSize: 22, fontWeight: 500 } : undefined}>
+            <div className={styles.title} style={stage === 'hunt' || stage === 'found' || stage === 'mismatch' ? { fontSize: 22, fontWeight: 500 } : undefined}>
               {stage === 'hunt' && '단어 사냥'}
               {(stage === 'scan' || stage === 'decode' || stage === 'camera') && '단어 사냥'}
               {stage === 'found' && '표현 발견'}
+              {stage === 'mismatch' && '미션 확인'}
               {(stage === 'write' || stage === 'convert' || stage === 'photo' || stage === 'collect') && '필사 스팟'}
             </div>
-            {stage !== 'hunt' && stage !== 'found' && <div className={styles.sub}>오늘의 테마 · {THEME.korean} {THEME.hanja}</div>}
+            {stage !== 'hunt' && stage !== 'found' && stage !== 'mismatch' && <div className={styles.sub}>오늘의 테마 · {THEME.korean} {THEME.hanja}</div>}
           </div>
         </div>
         {stage === 'hunt' && (
@@ -712,7 +748,7 @@ export default function ThemeCycle({
             해독 완료
           </span>
         )}
-        {onClose && stage !== 'hunt' && stage !== 'found' && (
+        {onClose && stage !== 'hunt' && stage !== 'found' && stage !== 'mismatch' && (
           <button
             onClick={onClose}
             style={{
@@ -940,12 +976,13 @@ export default function ThemeCycle({
               <span style={{ fontSize: 22, color: 'var(--text-purple)' }}>#{String(huntSavedNo || huntRecords.length + 1).padStart(3, '0')}</span>
             </div>
             {[
-              ['쉽게 말하면', huntResult.easy],
-              ['해야 할 행동', huntResult.action],
+              ['읽은 문장', huntResult.read],
+              ['쉽게 말하면', huntResult.plainMeaning],
+              ...huntResult.answers.map((a) => [a.q, a.a]),
             ].map(([k, v]) =>
               v ? (
-                <div key={k} style={{ display: 'flex', gap: 16, padding: '16px 0', borderTop: '0.5px solid var(--border-default)', marginTop: k === '쉽게 말하면' ? 14 : 0, animation: 'decodeIn 0.5s ease-out' }}>
-                  <span style={{ width: 84, flex: '0 0 auto', fontSize: 12, color: 'var(--text-secondary)', paddingTop: 2 }}>{k}</span>
+                <div key={k} style={{ display: 'flex', gap: 16, padding: '16px 0', borderTop: '0.5px solid var(--border-default)', marginTop: k === '읽은 문장' ? 14 : 0, animation: 'decodeIn 0.5s ease-out' }}>
+                  <span style={{ width: 96, flex: '0 0 auto', fontSize: 12, color: 'var(--text-secondary)', paddingTop: 2 }}>{k}</span>
                   <span style={{ fontSize: 15, lineHeight: 1.5 }}>{v}</span>
                 </div>
               ) : null
@@ -954,7 +991,6 @@ export default function ThemeCycle({
               <span style={{ width: 84, flex: '0 0 auto', fontSize: 12, color: 'var(--text-secondary)' }}>표현 유형</span>
               <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ padding: '7px 14px', borderRadius: 999, background: '#dff77e', color: '#2a2035', fontSize: 13, fontWeight: 700 }}>{huntResult.category}</span>
-                <span style={{ padding: '7px 14px', borderRadius: 999, background: huntResult.matchesTarget ? '#dff77e' : 'var(--bg-elevated)', color: huntResult.matchesTarget ? '#2a2035' : 'var(--text-secondary)', border: huntResult.matchesTarget ? 'none' : '0.5px solid var(--border-default)', fontSize: 13, fontWeight: 700 }}>{huntResult.matchesTarget ? '오늘의 표현군' : '자유 발견'}</span>
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 0', borderTop: '0.5px solid var(--border-default)', fontSize: 13, color: 'var(--text-secondary)' }}>
@@ -990,6 +1026,51 @@ export default function ThemeCycle({
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {stage === 'mismatch' && capturedPhoto && mismatch && (
+        <div style={{ ...paperStyle, paddingBottom: 110 }}>
+          <div style={{ background: '#2a2530', display: 'flex', justifyContent: 'center', padding: '14px 0 24px' }}>
+            <img src={capturedPhoto} alt="찍은 사진" style={{ display: 'block', maxWidth: '100vw', maxHeight: 280, width: 'auto', height: 'auto' }} />
+          </div>
+          <div style={{ margin: '-16px 0 0', padding: '20px 16px 0', borderRadius: '24px 24px 0 0', background: 'var(--glass-purple-hover)', position: 'relative', fontFamily: 'var(--font-sans)', color: 'var(--text-primary)' }}>
+            <span className="label-mono">MISSION CHECK</span>
+            <div style={{ marginTop: 10 }}>
+              <span style={{ display: 'inline-block', padding: '7px 14px', borderRadius: 999, background: '#dff77e', color: '#2a2035', fontSize: 13, fontWeight: 700 }}>미션 불일치</span>
+            </div>
+            <div style={{ marginTop: 12, fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.3 }}>오늘의 미션과 다른 문장이에요</div>
+            <p style={{ margin: '8px 0 0', fontSize: 14, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+              {mismatch.reason}
+              <br />
+              {todaySet.hunt.label}을 알려주는 표현은 아니에요.
+            </p>
+            <div style={{ marginTop: 14, padding: '12px 0', borderTop: '0.5px solid var(--border-default)' }}>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>사진에서 읽은 문장</div>
+              <div style={{ marginTop: 4, fontSize: 16 }}>{mismatch.read}</div>
+            </div>
+            <div style={{ padding: '12px 0', borderTop: '0.5px solid var(--border-default)' }}>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>오늘 찾는 표현</div>
+              <div style={{ marginTop: 4, fontSize: 16 }}>{todaySet.hunt.words.join(' · ')}</div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+              <button className={`${styles.certBtn} ttPress`} onClick={() => setStage('camera')}>
+                다시 찾아보기
+              </button>
+              {freeSaved ? (
+                <p style={{ margin: 0, textAlign: 'center', fontSize: 12, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+                  자유 수집으로 저장했어요. MY에서 볼 수 있고, 미션 완료와 지도에는 반영되지 않아요.
+                </p>
+              ) : (
+                <>
+                  <button className="ttPress" onClick={saveFree} style={{ padding: 14, borderRadius: 16, border: '0.5px solid var(--border-default)', background: 'var(--bg-card)', fontSize: 14, color: 'var(--text-purple)', cursor: 'pointer' }}>
+                    자유 수집으로 저장
+                  </button>
+                  <p style={{ margin: 0, textAlign: 'center', fontSize: 11, color: 'var(--text-secondary)' }}>개인 보관만 돼요. 미션 완료·지도에는 반영되지 않아요.</p>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
