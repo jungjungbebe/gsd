@@ -15,7 +15,7 @@ export default function SiteFooter() {
         <Link href="/privacy" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>
           개인정보처리방침
         </Link>
-        <a href="mailto:lylasule@gmail.com" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>
+        <a href="mailto:tutone.kr@gmail.com" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>
           문의하기
         </a>
       </div>
