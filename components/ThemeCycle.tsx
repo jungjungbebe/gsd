@@ -49,7 +49,7 @@ const THEME_BASE = {
 
 const FALLBACK_SPOT: Spot = { id: 'none', name: '근처 카페', category: '', lat: THEME_BASE.spot.lat, lng: THEME_BASE.spot.lng, distM: null }
 
-type Stage = 'hunt' | 'scan' | 'decode' | 'write' | 'convert' | 'photo' | 'collect'
+type Stage = 'hunt' | 'camera' | 'scan' | 'decode' | 'found' | 'write' | 'convert' | 'photo' | 'collect'
 
 // 종이 카드가 한 장씩 넘어오는 전환
 const paperStyle: React.CSSProperties = { animation: 'paperIn 0.38s cubic-bezier(0.2, 0.8, 0.2, 1)' }
@@ -210,7 +210,12 @@ export default function ThemeCycle({
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
   const [huntResult, setHuntResult] = useState<HuntResult | null>(null)
   const [huntErr, setHuntErr] = useState('')
-  const [decodePhase, setDecodePhase] = useState(0)
+  const [camErr, setCamErr] = useState('')
+  const [facing, setFacing] = useState<'environment' | 'user'>('environment')
+  const [todayLabel, setTodayLabel] = useState('')
+  const [editLoc, setEditLoc] = useState(false)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
   const [huntSavedNo, setHuntSavedNo] = useState(0)
   const [huntRecords, setHuntRecords] = useState<HuntRecord[]>([])
   const [pinCard, setPinCard] = useState<HuntRecord | null>(null)
@@ -345,6 +350,41 @@ export default function ThemeCycle({
   }, [stage, mapReady, locReady, loc.mode, loc.areaId, locNonce])
 
   useEffect(() => {
+    const d = new Date()
+    setTodayLabel(`${d.getMonth() + 1}/${d.getDate()}`)
+  }, [])
+
+  useEffect(() => {
+    if (stage !== 'camera') return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: facing }, width: { ideal: 1920 } },
+          audio: false,
+        })
+        if (cancelled) {
+          s.getTracks().forEach((t) => t.stop())
+          return
+        }
+        streamRef.current = s
+        setCamErr('')
+        if (videoRef.current) {
+          videoRef.current.srcObject = s
+          await videoRef.current.play().catch(() => {})
+        }
+      } catch {
+        if (!cancelled) setCamErr('카메라를 열 수 없어요. 아래 앨범 버튼으로 사진을 골라주세요.')
+      }
+    })()
+    return () => {
+      cancelled = true
+      streamRef.current?.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
+  }, [stage, facing])
+
+  useEffect(() => {
     if (scopeReady) {
       const list = getHuntRecords()
       setHuntRecords(list)
@@ -462,8 +502,21 @@ export default function ThemeCycle({
     }
   }
 
-  function triggerHuntUpload() {
-    huntInputRef.current?.click()
+  function openCamera() {
+    setHuntErr('')
+    setStage('camera')
+  }
+
+  function shoot() {
+    const v = videoRef.current
+    if (!v || !v.videoWidth) return
+    const scale = Math.min(1, 1280 / Math.max(v.videoWidth, v.videoHeight))
+    const c = document.createElement('canvas')
+    c.width = Math.round(v.videoWidth * scale)
+    c.height = Math.round(v.videoHeight * scale)
+    c.getContext('2d')!.drawImage(v, 0, 0, c.width, c.height)
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10)
+    beginHunt(c.toDataURL('image/jpeg', 0.75))
   }
 
   async function handleHuntFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -471,11 +524,16 @@ export default function ThemeCycle({
     e.target.value = ''
     if (!file) return
     const dataUrl = await compressImage(file, 1280)
+    beginHunt(dataUrl)
+  }
+
+  function beginHunt(dataUrl: string) {
     setCapturedPhoto(dataUrl)
     setHuntResult(null)
     setHuntErr('')
     setHuntSavedNo(0)
     setPinCard(null)
+    setEditLoc(false)
     setStage('scan')
     analyzeHunt(dataUrl)
   }
@@ -505,12 +563,9 @@ export default function ThemeCycle({
       return
     }
     setHuntResult(result)
-    setDecodePhase(0)
     setStage('decode')
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(20)
-    setTimeout(() => setDecodePhase(1), 1300)
-    setTimeout(() => setDecodePhase(2), 2300)
-    setTimeout(() => setDecodePhase(3), 3200)
+    setTimeout(() => setStage((cur) => (cur === 'decode' ? 'found' : cur)), 1600)
   }
 
   async function collectHunt() {
@@ -608,19 +663,52 @@ export default function ThemeCycle({
         }}
       />
 
+      <input ref={huntInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleHuntFile} />
+
       <div className={styles.header}>
-        <div>
-          <div className={styles.title}>
-            {stage === 'hunt' && '단어 사냥'}
-            {(stage === 'scan' || stage === 'decode') && '단어 해독'}
-            {stage === 'write' && '필사 스팟'}
-            {stage === 'convert' && '필사 스팟'}
-            {stage === 'photo' && '필사 스팟'}
-            {stage === 'collect' && '필사 스팟'}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {(stage === 'hunt' || stage === 'found') && (
+            <button
+              aria-label="뒤로"
+              onClick={() => {
+                if (stage === 'found') setStage('hunt')
+                else if (onClose) onClose()
+                else if (typeof history !== 'undefined') history.back()
+              }}
+              style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--text-primary)', cursor: 'pointer', padding: 4 }}
+            >
+              ←
+            </button>
+          )}
+          <div>
+            {stage === 'hunt' && <div className={styles.sub} style={{ marginTop: 0, marginBottom: 2 }}>MISSION 01</div>}
+            {stage === 'found' && <div className={styles.sub} style={{ marginTop: 0, marginBottom: 2 }}>FOUND {String(huntSavedNo || huntRecords.length + 1).padStart(2, '0')}</div>}
+            <div className={styles.title} style={stage === 'hunt' || stage === 'found' ? { fontSize: 22, fontWeight: 500 } : undefined}>
+              {stage === 'hunt' && '단어 사냥'}
+              {(stage === 'scan' || stage === 'decode' || stage === 'camera') && '단어 사냥'}
+              {stage === 'found' && '표현 발견'}
+              {(stage === 'write' || stage === 'convert' || stage === 'photo' || stage === 'collect') && '필사 스팟'}
+            </div>
+            {stage !== 'hunt' && stage !== 'found' && <div className={styles.sub}>오늘의 테마 · {THEME.korean} {THEME.hanja}</div>}
           </div>
-          <div className={styles.sub}>오늘의 테마 · {THEME.korean} {THEME.hanja}</div>
         </div>
-        {onClose && (
+        {stage === 'hunt' && (
+          <button
+            onClick={() => {
+              setMapBig(true)
+              document.getElementById('hunt-map')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            }}
+            style={{ background: 'none', border: 'none', fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--text-purple)', cursor: 'pointer' }}
+          >
+            🗺 발견 지도
+          </button>
+        )}
+        {stage === 'found' && (
+          <span style={{ padding: '8px 14px', borderRadius: 999, background: '#dff77e', color: '#2a2035', fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 700 }}>
+            해독 완료
+          </span>
+        )}
+        {onClose && stage !== 'hunt' && stage !== 'found' && (
           <button
             onClick={onClose}
             style={{
@@ -640,154 +728,265 @@ export default function ThemeCycle({
       </div>
 
       {stage === 'hunt' && (
-        <>
-          <div ref={mapDivRef} className={styles.map} />
-          <div className={styles.sheet}>
-            <div className={styles.handle} />
-            <div style={{ padding: '16px 16px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {renderLocChips()}
-              <span className="label-mono">TODAY&apos;S HUNT</span>
-              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 18, fontWeight: 800, lineHeight: 1.3, color: 'var(--text-primary)' }}>
-                {todaySet.hunt.title}을
-                <br />
-                발견하세요
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {todaySet.hunt.words.map((w) => (
-                  <span key={w} style={{ padding: '4px 10px', borderRadius: 999, background: '#dff77e', color: '#2a2035', fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 700 }}>
-                    {w}
-                  </span>
-                ))}
-              </div>
-              <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 300, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
-                간판·안내문·공지를 글자가 크게 보이게 찍어보세요. 사진은 해독을 위해 AI로 전송돼요. 얼굴·연락처가 나오지 않게 찍어주세요.
-              </p>
-              {pinCard && (
-                <div style={{ padding: 12, borderRadius: 14, background: '#dff77e', color: '#2a2035', fontFamily: 'var(--font-sans)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                    <span>{pinCard.area} · {pinCard.category}</span>
-                    <button onClick={() => setPinCard(null)} style={{ background: 'none', border: 'none', fontSize: 11, textDecoration: 'underline', cursor: 'pointer', color: '#2a2035' }}>닫기</button>
-                  </div>
-                  <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4 }}>{pinCard.expression}</div>
-                  <div style={{ fontSize: 12, marginTop: 2 }}>&ldquo;{pinCard.sentence}&rdquo;</div>
-                  {pinCard.easy && <div style={{ fontSize: 12, marginTop: 4 }}>↓ {pinCard.easy}</div>}
-                </div>
-              )}
+        <div style={{ ...paperStyle, padding: '12px 16px 110px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ position: 'relative', padding: '22px 20px 20px', borderRadius: 28, background: 'var(--glass-purple-hover)', border: '0.5px solid var(--border-default)' }}>
+            <div style={{ position: 'absolute', top: -10, right: -4 }}>
+              <Sticker rotate={5}>FIND!</Sticker>
             </div>
-            <div className={styles.certBar}>
-              <button className={styles.certBtn} onClick={triggerHuntUpload}>
-                📷 글자 찍고 해독하기
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-secondary)', paddingRight: 56 }}>
+              <span>오늘의 사냥</span>
+              <span>{areaLabel} · {todayLabel}</span>
+            </div>
+            <div style={{ marginTop: 28, fontFamily: 'var(--font-sans)', fontSize: 25, fontWeight: 700, lineHeight: 1.3, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
+              &lsquo;{todaySet.hunt.label}&rsquo;{(() => {
+                const c = todaySet.hunt.label.charCodeAt(todaySet.hunt.label.length - 1)
+                return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 === 0 ? '를' : '을'
+              })()} 알려주는
+              <br />
+              표현을 찾아보세요.
+            </div>
+            <p style={{ margin: '10px 0 0', fontFamily: 'var(--font-sans)', fontSize: 14, lineHeight: 1.6, color: 'var(--text-secondary)' }}>{todaySet.hunt.sub}</p>
+            <div style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {todaySet.hunt.words.slice(0, 3).map((w) => (
+                <span key={w} style={{ padding: '9px 16px', borderRadius: 999, background: '#dff77e', color: '#2a2035', fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 700 }}>
+                  {w}
+                </span>
+              ))}
+            </div>
+            <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-secondary)' }}>
+              <span style={{ color: 'var(--text-purple)' }}>✦</span>
+              <span>예시는 힌트예요. 다른 표현도 발견할 수 있어요.</span>
+            </div>
+          </div>
+
+          <button
+            className="ttPress"
+            onClick={openCamera}
+            style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 12, borderRadius: 22, border: '0.5px solid var(--border-default)', background: 'var(--bg-card)', textAlign: 'left', cursor: 'pointer', color: 'var(--text-primary)' }}
+          >
+            <span style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--purple-500)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, boxShadow: '0 0 0 6px rgba(160,140,220,0.25)' }}>⌗</span>
+            <span style={{ flex: 1, fontFamily: 'var(--font-sans)' }}>
+              <span style={{ display: 'block', fontSize: 15, fontWeight: 700 }}>주변 안내문을 비춰보세요</span>
+              <span style={{ display: 'block', marginTop: 2, fontSize: 12, color: 'var(--text-secondary)' }}>사진 속 표현을 찾아드려요</span>
+            </span>
+            <span style={{ fontSize: 16, color: 'var(--text-secondary)' }}>↗</span>
+          </button>
+
+          <button className={`${styles.certBtn} ttPress`} onClick={openCamera}>
+            📷 카메라 열고 사냥 시작하기
+          </button>
+
+          <div style={{ marginTop: 6 }}>
+            <span className="label-mono">NEARBY</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>
+                {areaLabel}에서 내가 발견한 표현 {archiveCount}개
+              </span>
+              <button
+                onClick={() => setMapBig((v) => !v)}
+                style={{ background: 'none', border: 'none', fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-purple)', cursor: 'pointer' }}
+              >
+                {mapBig ? '작게 보기' : '지도 보기'}
               </button>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 16px' }}>
-              <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 300, color: 'var(--text-secondary)' }}>내 발견 아카이브</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-purple)', fontWeight: 700 }}>{archiveCount}장</span>
-            </div>
-            <input ref={huntInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleHuntFile} />
           </div>
-        </>
+          {renderLocChips()}
+          <div id="hunt-map" style={{ position: 'relative', height: mapBig ? 380 : 190, transition: 'height 0.25s ease' }}>
+            <div ref={mapDivRef} className={styles.map} style={{ height: '100%', borderRadius: 20, overflow: 'hidden' }} />
+          </div>
+          {pinCard && (
+            <div style={{ padding: 12, borderRadius: 14, background: '#dff77e', color: '#2a2035', fontFamily: 'var(--font-sans)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span>{pinCard.area} · {pinCard.category}</span>
+                <button onClick={() => setPinCard(null)} style={{ background: 'none', border: 'none', fontSize: 11, textDecoration: 'underline', cursor: 'pointer', color: '#2a2035' }}>닫기</button>
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4 }}>{pinCard.expression}</div>
+              <div style={{ fontSize: 12, marginTop: 2 }}>&ldquo;{pinCard.sentence}&rdquo;</div>
+              {pinCard.easy && <div style={{ fontSize: 12, marginTop: 4 }}>↓ {pinCard.easy}</div>}
+            </div>
+          )}
+          <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 11, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+            사진은 글자 해독을 위해 AI로 전송돼요. 얼굴·연락처가 나오지 않게 찍어주세요.
+          </p>
+        </div>
       )}
 
-      {stage === 'scan' && capturedPhoto && (
-        <div className={styles.sheet} style={{ ...paperStyle, padding: '20px 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <span className="label-mono">DECODING</span>
-          <div style={{ position: 'relative', lineHeight: 0, borderRadius: 16, overflow: 'hidden' }}>
-            <img src={capturedPhoto} alt="찍은 사진" style={{ width: '100%', display: 'block', filter: huntErr ? 'grayscale(0.6)' : 'none' }} />
-            {!huntErr && <div style={{ position: 'absolute', left: 0, right: 0, height: 3, background: '#dff77e', boxShadow: '0 0 14px 6px rgba(223,247,126,0.8)', animation: 'huntScan 1.4s ease-in-out infinite alternate' }} />}
+      {stage === 'camera' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#15131a', display: 'flex', flexDirection: 'column' }}>
+          <video ref={videoRef} playsInline muted autoPlay style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(20,16,30,0.55) 0%, rgba(20,16,30,0.05) 30%, rgba(20,16,30,0.05) 70%, rgba(20,16,30,0.4) 100%)' }} />
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'calc(env(safe-area-inset-top) + 16px) 16px 0' }}>
+            <button aria-label="닫기" onClick={() => setStage('hunt')} style={{ width: 44, height: 44, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: 18, cursor: 'pointer' }}>✕</button>
+            <div style={{ textAlign: 'center', fontFamily: 'var(--font-sans)', color: '#fff' }}>
+              <div style={{ fontSize: 12, opacity: 0.8 }}>오늘의 사냥</div>
+              <div style={{ marginTop: 2, fontSize: 14, fontWeight: 700 }}>{todaySet.hunt.label}을 알려주는 표현</div>
+            </div>
+            <span style={{ width: 44 }} />
+          </div>
+          <div style={{ position: 'absolute', left: 36, right: 36, top: '22%', bottom: '30%', pointerEvents: 'none' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, width: 34, height: 34, borderColor: '#dff77e', borderStyle: 'solid', borderWidth: 0, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 6, borderBottomLeftRadius: 6 }} />
+            <div style={{ position: 'absolute', top: 0, right: 0, width: 34, height: 34, borderColor: '#dff77e', borderStyle: 'solid', borderWidth: 0, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 6, borderBottomRightRadius: 6 }} />
+            <div style={{ position: 'absolute', bottom: 0, left: 0, width: 34, height: 34, borderColor: '#dff77e', borderStyle: 'solid', borderWidth: 0, borderBottomWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 6, borderBottomLeftRadius: 6 }} />
+            <div style={{ position: 'absolute', bottom: 0, right: 0, width: 34, height: 34, borderColor: '#dff77e', borderStyle: 'solid', borderWidth: 0, borderBottomWidth: 4, borderRightWidth: 4, borderTopRightRadius: 6, borderBottomRightRadius: 6 }} />
+          </div>
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 150, display: 'flex', justifyContent: 'center' }}>
+            <span style={{ padding: '12px 20px', borderRadius: 999, background: 'rgba(20,16,30,0.6)', color: '#fff', fontFamily: 'var(--font-sans)', fontSize: 13 }}>
+              {camErr || '안내문을 프레임 안에 담아주세요'}
+            </span>
+          </div>
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '22px 28px calc(env(safe-area-inset-bottom) + 22px)', background: '#15131a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <button aria-label="앨범" onClick={() => huntInputRef.current?.click()} style={{ width: 52, height: 52, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.14)', color: '#fff', fontSize: 20, cursor: 'pointer' }}>🖼</button>
+            <button aria-label="촬영" onClick={shoot} disabled={!!camErr} style={{ width: 76, height: 76, borderRadius: '50%', border: '4px solid #fff', background: 'transparent', padding: 4, cursor: 'pointer', opacity: camErr ? 0.4 : 1 }}>
+              <span style={{ display: 'block', width: '100%', height: '100%', borderRadius: '50%', background: '#fff' }} />
+            </button>
+            <button aria-label="카메라 전환" onClick={() => setFacing((f) => (f === 'environment' ? 'user' : 'environment'))} style={{ width: 52, height: 52, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.14)', color: '#fff', fontSize: 20, cursor: 'pointer' }}>⟲</button>
+          </div>
+        </div>
+      )}
+
+      {(stage === 'scan' || stage === 'decode') && capturedPhoto && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#15131a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 22, padding: 16 }}>
+          <div style={{ position: 'relative', lineHeight: 0, borderRadius: 16, overflow: 'hidden', maxWidth: '100%' }}>
+            <img src={capturedPhoto} alt="찍은 사진" style={{ display: 'block', maxWidth: '100%', maxHeight: '66vh', width: 'auto', height: 'auto', filter: huntErr ? 'grayscale(0.7)' : 'none' }} />
+            {stage === 'scan' && !huntErr && <div style={{ position: 'absolute', left: 0, right: 0, height: 3, background: '#dff77e', boxShadow: '0 0 14px 6px rgba(223,247,126,0.8)', animation: 'huntScan 1.4s ease-in-out infinite alternate' }} />}
+            {stage === 'decode' && huntResult && (
+              huntResult.box ? (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: `${huntResult.box.x * 100}%`,
+                    top: `${huntResult.box.y * 100}%`,
+                    width: `${huntResult.box.w * 100}%`,
+                    height: `${huntResult.box.h * 100}%`,
+                    borderRadius: 8,
+                    border: '2px solid #dff77e',
+                    background: 'rgba(223,247,126,0.14)',
+                    boxShadow: '0 0 0 9999px rgba(20,10,40,0.6), 0 0 16px 4px rgba(223,247,126,0.9), 0 0 40px 12px rgba(223,247,126,0.45)',
+                    animation: 'huntGlow 1.1s ease-out',
+                  }}
+                />
+              ) : (
+                <div style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 0 40px 10px rgba(223,247,126,0.75)', animation: 'huntGlow 1.1s ease-out' }} />
+              )
+            )}
           </div>
           {huntErr ? (
             <>
-              <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 14, lineHeight: 1.6, color: 'var(--text-primary)' }}>{huntErr}</p>
-              <button className={`${styles.certBtn} ttPress`} onClick={() => { setHuntErr(''); setStage('hunt') }}>
+              <p style={{ margin: 0, textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: 14, lineHeight: 1.6, color: '#fff' }}>{huntErr}</p>
+              <button className={`${styles.certBtn} ttPress`} style={{ maxWidth: 360, width: '100%' }} onClick={() => { setHuntErr(''); setStage('camera') }}>
                 다시 찍기
+              </button>
+              <button onClick={() => setStage('hunt')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontFamily: 'var(--font-sans)', fontSize: 12, textDecoration: 'underline', cursor: 'pointer' }}>
+                닫기
               </button>
             </>
           ) : (
-            <p style={{ margin: 0, textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--text-secondary)', animation: 'huntBlink 1.2s ease-in-out infinite' }}>
-              표현을 찾는 중…
+            <p style={{ margin: 0, textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: 14, color: '#fff', animation: stage === 'scan' ? 'huntBlink 1.2s ease-in-out infinite' : 'decodeIn 0.4s ease-out' }}>
+              {stage === 'scan' ? '표현을 찾는 중…' : '새 표현 발견!'}
             </p>
           )}
         </div>
       )}
 
-      {stage === 'decode' && capturedPhoto && huntResult && (
-        <div className={styles.sheet} style={{ ...paperStyle, padding: '20px 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <span className="label-mono">NEW EXPRESSION FOUND</span>
-          <div style={{ position: 'relative', lineHeight: 0, borderRadius: 16, overflow: 'hidden' }}>
-            <img src={capturedPhoto} alt="발견한 글자" style={{ width: '100%', display: 'block' }} />
-            {huntResult.box ? (
-              <div
+      {stage === 'found' && capturedPhoto && huntResult && (
+        <div style={{ ...paperStyle, paddingBottom: 110 }}>
+          <div style={{ position: 'relative', background: '#2a2530', display: 'flex', justifyContent: 'center', padding: '14px 0 30px' }}>
+            <div style={{ position: 'relative', lineHeight: 0 }}>
+              <img src={capturedPhoto} alt="발견한 글자" style={{ display: 'block', maxWidth: '100vw', maxHeight: 300, width: 'auto', height: 'auto' }} />
+              {huntResult.box && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: `${huntResult.box.x * 100}%`,
+                    top: `${huntResult.box.y * 100}%`,
+                    width: `${huntResult.box.w * 100}%`,
+                    height: `${huntResult.box.h * 100}%`,
+                    borderRadius: 6,
+                    background: 'rgba(223,247,126,0.38)',
+                    border: '1.5px solid #dff77e',
+                  }}
+                />
+              )}
+              <span
                 style={{
                   position: 'absolute',
-                  left: `${huntResult.box.x * 100}%`,
-                  top: `${huntResult.box.y * 100}%`,
-                  width: `${huntResult.box.w * 100}%`,
-                  height: `${huntResult.box.h * 100}%`,
-                  borderRadius: 8,
-                  border: '2px solid #dff77e',
-                  background: 'rgba(223,247,126,0.14)',
-                  boxShadow: '0 0 0 9999px rgba(20,10,40,0.55), 0 0 16px 4px rgba(223,247,126,0.9), 0 0 40px 12px rgba(223,247,126,0.45)',
-                  animation: 'huntGlow 1.1s ease-out',
+                  left: huntResult.box ? `${Math.min(80, Math.max(20, (huntResult.box.x + huntResult.box.w / 2) * 100))}%` : '50%',
+                  top: huntResult.box ? `calc(${Math.min(96, (huntResult.box.y + huntResult.box.h) * 100)}% + 4px)` : '88%',
+                  transform: 'translateX(-50%)',
+                  whiteSpace: 'nowrap',
+                  padding: '9px 16px',
+                  borderRadius: 999,
+                  background: 'var(--purple-500)',
+                  color: '#fff',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 13,
+                  lineHeight: 1.2,
+                  boxShadow: '0 0 0 4px rgba(223,247,126,0.65)',
                 }}
-              />
-            ) : (
-              <div style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 0 40px 10px rgba(223,247,126,0.75)', animation: 'huntGlow 1.1s ease-out' }} />
-            )}
+              >
+                ✦ {huntResult.expression}
+              </span>
+            </div>
           </div>
 
-          {decodePhase >= 1 && (
-            <div style={{ padding: 16, borderRadius: 18, background: 'var(--bg-card)', border: '1px solid var(--purple-500)', fontFamily: 'var(--font-sans)', color: 'var(--text-primary)', animation: 'decodeIn 0.45s ease-out' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="label-mono">발견 카드 #{String(huntSavedNo || huntRecords.length + 1).padStart(3, '0')}</span>
-                <Sticker>{huntResult.matchesTarget ? '오늘의 표현군 ✓' : '자유 발견 ✳'}</Sticker>
-              </div>
-              <div style={{ marginTop: 10, fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em' }}>
-                <mark style={{ background: '#dff77e', color: '#2a2035', padding: '0 4px', borderRadius: 4 }}>{huntResult.expression}</mark>
-              </div>
-              <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text-secondary)' }}>&ldquo;{huntResult.sentence}&rdquo;</div>
-              {decodePhase >= 2 && huntResult.easy && (
-                <div style={{ marginTop: 10, fontSize: 15, fontWeight: 700, animation: 'decodeIn 0.45s ease-out' }}>↓ {huntResult.easy}</div>
-              )}
-              {decodePhase >= 3 && (
-                <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6, fontSize: 12, animation: 'decodeIn 0.45s ease-out' }}>
-                  {huntResult.action && <span style={{ padding: '4px 10px', borderRadius: 999, background: 'var(--bg-elevated)', border: '0.5px solid var(--border-default)' }}>행동: {huntResult.action}</span>}
-                  <span style={{ padding: '4px 10px', borderRadius: 999, background: 'var(--bg-elevated)', border: '0.5px solid var(--border-default)' }}>{huntResult.category}</span>
-                  <span style={{ padding: '4px 10px', borderRadius: 999, background: 'var(--bg-elevated)', border: '0.5px solid var(--border-default)' }}>📍 {areaLabel}</span>
+          <div style={{ padding: '18px 16px 0', fontFamily: 'var(--font-sans)', color: 'var(--text-primary)' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>발견한 표현</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 4 }}>
+              <span style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.02em', animation: 'decodeIn 0.45s ease-out' }}>{huntResult.expression}</span>
+              <span style={{ fontSize: 22, color: 'var(--text-purple)' }}>#{String(huntSavedNo || huntRecords.length + 1).padStart(3, '0')}</span>
+            </div>
+            {[
+              ['쉽게 말하면', huntResult.easy],
+              ['해야 할 행동', huntResult.action],
+            ].map(([k, v]) =>
+              v ? (
+                <div key={k} style={{ display: 'flex', gap: 16, padding: '16px 0', borderTop: '0.5px solid var(--border-default)', marginTop: k === '쉽게 말하면' ? 14 : 0, animation: 'decodeIn 0.5s ease-out' }}>
+                  <span style={{ width: 84, flex: '0 0 auto', fontSize: 12, color: 'var(--text-secondary)', paddingTop: 2 }}>{k}</span>
+                  <span style={{ fontSize: 15, lineHeight: 1.5 }}>{v}</span>
                 </div>
+              ) : null
+            )}
+            <div style={{ display: 'flex', gap: 16, padding: '14px 0', borderTop: '0.5px solid var(--border-default)', alignItems: 'center' }}>
+              <span style={{ width: 84, flex: '0 0 auto', fontSize: 12, color: 'var(--text-secondary)' }}>표현 유형</span>
+              <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ padding: '7px 14px', borderRadius: 999, background: '#dff77e', color: '#2a2035', fontSize: 13, fontWeight: 700 }}>{huntResult.category}</span>
+                {huntResult.matchesTarget && <span style={{ padding: '7px 14px', borderRadius: 999, background: '#dff77e', color: '#2a2035', fontSize: 13, fontWeight: 700 }}>오늘의 표현군</span>}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 0', borderTop: '0.5px solid var(--border-default)', fontSize: 13, color: 'var(--text-secondary)' }}>
+              <span style={{ color: 'var(--text-purple)' }}>📍</span>
+              <span style={{ flex: 1 }}>서울 {areaLabel}</span>
+              {!huntSavedNo && (
+                <button onClick={() => setEditLoc((v) => !v)} style={{ background: 'none', border: 'none', fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                  {editLoc ? '완료' : '변경'}
+                </button>
               )}
             </div>
-          )}
+            {editLoc && !huntSavedNo && <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 12 }}>{renderLocChips()}</div>}
 
-          {decodePhase >= 3 &&
-            (huntSavedNo ? (
-              <>
-                <p style={{ margin: 0, textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                  발견 카드 #{String(huntSavedNo).padStart(3, '0')} 수집 완료 · MY에서 다시 볼 수 있어요
+            {huntSavedNo ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
+                <p style={{ margin: 0, textAlign: 'center', fontSize: 14, fontWeight: 700 }}>
+                  도감 #{String(huntSavedNo).padStart(3, '0')} 수집 완료 · MY에서 볼 수 있어요
                 </p>
                 <button className={`${styles.certBtn} ttPress`} onClick={() => setStage('write')}>
                   오늘의 필사 하러 가기 →
                 </button>
-                <button
-                  className="ttPress"
-                  onClick={() => setStage('hunt')}
-                  style={{ padding: 14, borderRadius: 14, border: '0.5px solid var(--border-default)', background: 'var(--bg-card)', fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--text-primary)', cursor: 'pointer' }}
-                >
+                <button className="ttPress" onClick={() => setStage('hunt')} style={{ padding: 14, borderRadius: 16, border: '0.5px solid var(--border-default)', background: 'var(--bg-card)', fontSize: 14, color: 'var(--text-primary)', cursor: 'pointer' }}>
                   하나 더 찾기
                 </button>
-              </>
+              </div>
             ) : (
-              <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
                 <button className={`${styles.certBtn} ttPress`} onClick={collectHunt}>
-                  발견 카드로 수집하기
+                  🔖 내 도감에 수집하기
                 </button>
-                <button
-                  onClick={() => setStage('hunt')}
-                  style={{ background: 'none', border: 'none', fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'underline', cursor: 'pointer' }}
-                >
-                  수집하지 않고 다시 찍기
+                <button className="ttPress" onClick={() => setStage('camera')} style={{ padding: 14, borderRadius: 16, border: '0.5px solid var(--border-default)', background: 'var(--bg-card)', fontSize: 14, color: 'var(--text-primary)', cursor: 'pointer' }}>
+                  다시 찍기
                 </button>
-              </>
-            ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
