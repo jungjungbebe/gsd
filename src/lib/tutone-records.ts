@@ -307,6 +307,103 @@ export async function syncRecords(): Promise<void> {
         fromRow: rowToWriting,
         toRow: writingToRow,
       }),
+      syncTable<HuntRow, HuntRecord>({
+        table: HUNT_TABLE,
+        select: 'id, created_at, expression, sentence, easy, action, category, matched, area, lat, lng',
+        recordsKey: HUNT_RECORDS_KEY,
+        fromRow: rowToHunt,
+        toRow: huntToRow,
+      }),
     ])
   } catch {}
 }
+
+// ── 단어 사냥 발견 카드 ──
+export interface HuntRecord {
+  id: string
+  date: string
+  expression: string
+  sentence: string
+  easy: string
+  action: string
+  category: string
+  matched: boolean
+  area: string
+  lat: number
+  lng: number
+  photo?: string // 작은 썸네일. 이 기기에만 저장
+}
+
+interface HuntRow {
+  id: string
+  created_at: string
+  expression: string
+  sentence: string
+  easy: string | null
+  action: string | null
+  category: string | null
+  matched: boolean | null
+  area: string | null
+  lat: number | null
+  lng: number | null
+}
+
+const HUNT_RECORDS_KEY = 'tutone_hunt_records'
+const HUNT_TABLE = 'tutone_hunt_records'
+
+function huntToRow(r: HuntRecord) {
+  return {
+    id: r.id,
+    created_at: r.date,
+    expression: r.expression,
+    sentence: r.sentence,
+    easy: r.easy,
+    action: r.action,
+    category: r.category,
+    matched: r.matched,
+    area: r.area,
+    lat: r.lat,
+    lng: r.lng,
+  }
+}
+
+function rowToHunt(row: HuntRow): HuntRecord {
+  return {
+    id: row.id,
+    date: new Date(row.created_at).toISOString(),
+    expression: row.expression,
+    sentence: row.sentence,
+    easy: row.easy ?? '',
+    action: row.action ?? '',
+    category: row.category ?? '안내',
+    matched: !!row.matched,
+    area: row.area ?? '',
+    lat: row.lat ?? 0,
+    lng: row.lng ?? 0,
+  }
+}
+
+export function getHuntRecords(): HuntRecord[] {
+  return readRecords<HuntRecord>(HUNT_RECORDS_KEY)
+}
+
+export function addHuntRecord(input: Omit<HuntRecord, 'id' | 'date'>): HuntRecord {
+  const list = getHuntRecords()
+  const rec: HuntRecord = { id: makeId(), date: new Date().toISOString(), ...input }
+  list.unshift(rec)
+  const tryWrite = (l: HuntRecord[]) => {
+    try {
+      localStorage.setItem(scopedKey(HUNT_RECORDS_KEY), JSON.stringify(l.slice(0, MAX_RECORDS)))
+      return true
+    } catch {
+      return false
+    }
+  }
+  if (!tryWrite(list)) {
+    const slim = list.map((r, i) => (i === 0 ? r : { ...r, photo: undefined }))
+    if (!tryWrite(slim)) tryWrite(list.map((r) => ({ ...r, photo: undefined })))
+  }
+  pushToServer(HUNT_TABLE, huntToRow(rec))
+  return rec
+}
+

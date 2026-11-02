@@ -18,11 +18,13 @@ export interface MissionSet {
   task: string
   mission: { before: string; highlight: string; tail: string }
   hints: HintWord[]
+  hunt: { title: string; words: string[] }
 }
 
 export const MISSION_SETS: MissionSet[] = [
   {
     id: 'confirm',
+    hunt: { title: '확인 · 문의를 알려주는 표현', words: ['확인', '문의', '안내', '접수', '신청'] },
     sentenceMark: '정확해지는 일이다.',
     task: '확인하고 답하기',
     korean: '확인',
@@ -39,6 +41,7 @@ export const MISSION_SETS: MissionSet[] = [
   },
   {
     id: 'scope',
+    hunt: { title: '범위 · 조건을 알려주는 표현', words: ['한정', '제외', '포함', '조건', '대상'] },
     sentenceMark: '어디를 고칠지가 숨어 있다.',
     task: '범위 좁혀 되묻기',
     korean: '범위',
@@ -55,6 +58,7 @@ export const MISSION_SETS: MissionSet[] = [
   },
   {
     id: 'boundary',
+    hunt: { title: '제한 · 금지를 알려주는 표현', words: ['금지', '제한', '불가', '출입', '주의'] },
     sentenceMark: '다음의 가능성을 남기며 할 수 있다.',
     task: '대안 남기며 거절하기',
     korean: '경계',
@@ -71,6 +75,7 @@ export const MISSION_SETS: MissionSet[] = [
   },
   {
     id: 'pace',
+    hunt: { title: '기한 · 일정을 알려주는 표현', words: ['마감', '당일', '상시', '사전', '기한'] },
     sentenceMark: '서두르는 일은 다르다.',
     task: '인정하고 일정 알리기',
     korean: '속도',
@@ -87,6 +92,7 @@ export const MISSION_SETS: MissionSet[] = [
   },
   {
     id: 'clarity',
+    hunt: { title: '공지 · 전달을 알려주는 표현', words: ['공지', '참고', '필독', '유의', '안내'] },
     sentenceMark: '기다림을 끝낸다.',
     task: '받았다고 알리기',
     korean: '명료',
@@ -103,6 +109,7 @@ export const MISSION_SETS: MissionSet[] = [
   },
   {
     id: 'transition',
+    hunt: { title: '변경 · 전환을 알려주는 표현', words: ['변경', '이전', '리뉴얼', '임시', '개편'] },
     sentenceMark: '사라지는 것은 아니다.',
     task: '방향 바꿔 설명하기',
     korean: '전환',

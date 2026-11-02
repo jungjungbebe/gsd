@@ -9,6 +9,8 @@ import {
   getScrapRecords,
   removeScrapRecord,
   getWritingRecords,
+  getHuntRecords,
+  type HuntRecord,
   type ToneCheckPlaybookRecord,
   type ToneCheckScrapRecord,
   type WritingRecord,
@@ -20,6 +22,7 @@ const TABS = [
   { key: 'saved', label: '저장한 대응' },
   { key: 'scrap', label: '찜한 표현' },
   { key: 'archive', label: '필사 기록' },
+  { key: 'hunt', label: '발견 카드' },
 ] as const
 
 type TabKey = typeof TABS[number]['key']
@@ -27,6 +30,7 @@ type TabKey = typeof TABS[number]['key']
 const EMPTY_STATES: Record<TabKey, { icon: string; text: string; btnLabel: string; btnHref: string }> = {
   saved: { icon: '💾', text: '저장한 대응이 없어요.\n메시지를 분석하고 저장해보세요', btnLabel: '톤 체크하러 가기', btnHref: '/tone-check' },
   scrap: { icon: '⭐', text: '찜한 표현이 없어요.\n톤 체크 결과에서 ☆ 찜하기를 눌러보세요', btnLabel: '톤 체크하러 가기', btnHref: '/tone-check' },
+  hunt: { icon: '🔍', text: '발견 카드가 없어요.\n단어 사냥에서 글자를 찍어 해독해보세요', btnLabel: '단어 사냥 시작', btnHref: '/missions' },
   archive: { icon: '✍️', text: '필사 기록이 없어요.\n필사 스팟 미션을 완료해보세요', btnLabel: '필사 미션 시작', btnHref: '/missions' },
 }
 
@@ -47,6 +51,7 @@ export default function MyPage() {
   const [loading, setLoading] = useState(true)
   const [scraps, setScraps] = useState<ToneCheckScrapRecord[]>([])
   const [writings, setWritings] = useState<WritingRecord[]>([])
+  const [hunts, setHunts] = useState<HuntRecord[]>([])
   const [user, setUser] = useState<{ email?: string; user_metadata?: { nickname?: string } } | null>(null)
 
   useEffect(() => {
@@ -72,6 +77,7 @@ export default function MyPage() {
       setTranslations(getPlaybookRecords())
       setScraps(getScrapRecords())
       setWritings(getWritingRecords())
+      setHunts(getHuntRecords())
     }
   }, [scopeReady])
 
@@ -240,6 +246,43 @@ export default function MyPage() {
                   <span>
                     {t.theme} · {t.spot}
                     {t.expressions && t.expressions.length > 0 ? ' · 수집: ' + t.expressions.join(', ') : ''}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : activeTab === 'hunt' && hunts.length > 0 ? (
+          <div className={styles.savedList}>
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-secondary)', padding: '0 4px' }}>
+              발견한 표현 {Array.from(new Set(hunts.map((h) => h.expression))).length}개 · 카드 {hunts.length}장
+            </div>
+            {hunts.map((h, i) => (
+              <div key={h.id} className={styles.savedCard}>
+                <div className={styles.savedTop}>
+                  <span className={styles.savedInput}>
+                    #{String(hunts.length - i).padStart(3, '0')} {h.expression}
+                  </span>
+                  <span className={styles.savedTime}>{timeAgo(h.date)}</span>
+                </div>
+                {h.photo ? (
+                  <img src={h.photo} alt="발견한 글자" style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', borderRadius: 12, marginTop: 4 }} />
+                ) : null}
+                <div className={styles.savedResults}>
+                  <div className={styles.savedResult}>
+                    <span className={styles.savedLabelBiz}>문장</span>
+                    <span className={styles.savedText}>{h.sentence}</span>
+                  </div>
+                  {h.easy ? (
+                    <div className={styles.savedResult}>
+                      <span className={styles.savedLabelBiz}>쉬운 뜻</span>
+                      <span className={styles.savedText}>{h.easy}</span>
+                    </div>
+                  ) : null}
+                </div>
+                <div className={styles.savedMeta}>
+                  <span>
+                    {h.category} · {h.area}
+                    {h.action ? ' · ' + h.action : ''}
                   </span>
                 </div>
               </div>

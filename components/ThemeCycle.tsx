@@ -3,14 +3,13 @@
 import { useEffect, useRef, useState } from 'react'
 import Script from 'next/script'
 import styles from './KakaoMap.module.css'
-import StampCard from './StampCard'
 import {
   ThemeRecord,
   loadThemeRecord,
   saveThemeRecord,
-  loadArchiveCount,
 } from '@/lib/themeRecord'
-import { addWritingRecord, getWritingRecords } from '@/lib/tutone-records'
+import { addWritingRecord, getWritingRecords, addHuntRecord, getHuntRecords, type HuntRecord } from '@/lib/tutone-records'
+import { useScopeReady } from '@/lib/tutone-scope'
 import { getTodaySet } from '@/lib/missionSets'
 import {
   AREAS,
@@ -50,7 +49,7 @@ const THEME_BASE = {
 
 const FALLBACK_SPOT: Spot = { id: 'none', name: '근처 카페', category: '', lat: THEME_BASE.spot.lat, lng: THEME_BASE.spot.lng, distM: null }
 
-type Stage = 'hunt' | 'stamp' | 'write' | 'convert' | 'photo' | 'collect'
+type Stage = 'hunt' | 'scan' | 'decode' | 'write' | 'convert' | 'photo' | 'collect'
 
 // 종이 카드가 한 장씩 넘어오는 전환
 const paperStyle: React.CSSProperties = { animation: 'paperIn 0.38s cubic-bezier(0.2, 0.8, 0.2, 1)' }
@@ -160,6 +159,19 @@ async function makeThumb(dataUrl: string, maxSize = 480): Promise<string | undef
   }
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+interface HuntResult {
+  found: boolean
+  sentence: string
+  expression: string
+  matchesTarget: boolean
+  easy: string
+  action: string
+  category: string
+  box: { x: number; y: number; w: number; h: number } | null
+}
+
 function exampleSvg(sentence: string): string {
   const svg =
     '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600" fill="#f4efe6"/>' +
@@ -196,6 +208,13 @@ export default function ThemeCycle({
   const [record, setRecord] = useState<ThemeRecord>({ hunt: false, write: false })
   const [archiveCount, setArchiveCount] = useState(0)
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
+  const [huntResult, setHuntResult] = useState<HuntResult | null>(null)
+  const [huntErr, setHuntErr] = useState('')
+  const [decodePhase, setDecodePhase] = useState(0)
+  const [huntSavedNo, setHuntSavedNo] = useState(0)
+  const [huntRecords, setHuntRecords] = useState<HuntRecord[]>([])
+  const [pinCard, setPinCard] = useState<HuntRecord | null>(null)
+  const scopeReady = useScopeReady()
   const [mapReady, setMapReady] = useState(false)
   const [selectedSpotId, setSelectedSpotId] = useState('')
   const [loc, setLoc] = useState<{ mode: 'gps' | 'area'; areaId: string }>({ mode: 'area', areaId: 'seongsu' })
@@ -326,8 +345,15 @@ export default function ThemeCycle({
   }, [stage, mapReady, locReady, loc.mode, loc.areaId, locNonce])
 
   useEffect(() => {
+    if (scopeReady) {
+      const list = getHuntRecords()
+      setHuntRecords(list)
+      setArchiveCount(list.length)
+    }
+  }, [scopeReady])
+
+  useEffect(() => {
     setRecord(loadThemeRecord())
-    setArchiveCount(loadArchiveCount())
 
     if (window.kakao && window.kakao.maps) {
       window.kakao.maps.load(() => setMapReady(true))
@@ -355,16 +381,36 @@ export default function ThemeCycle({
     overlaysRef.current = []
 
     if (stage === 'hunt') {
-      const el = document.createElement('div')
-      el.innerHTML =
-        '<div style="width:44px;height:44px;border-radius:50%;background:#d9a441;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:18px;">📷</div>'
-      const overlay = new window.kakao.maps.CustomOverlay({
-        position: new window.kakao.maps.LatLng(centerCoords.lat, centerCoords.lng),
-        content: el,
-        yAnchor: 0.5,
+      const pins = huntRecords.filter((r) => r.lat && r.lng)
+      if (userPos) {
+        const me = document.createElement('div')
+        me.innerHTML = '<div style="width:16px;height:16px;border-radius:50%;background:#3b82f6;border:3px solid #fff;box-shadow:0 0 0 4px rgba(59,130,246,0.25);"></div>'
+        const meOverlay = new window.kakao.maps.CustomOverlay({ position: new window.kakao.maps.LatLng(userPos.lat, userPos.lng), content: me, yAnchor: 0.5 })
+        meOverlay.setMap(map)
+        overlaysRef.current.push(meOverlay)
+      }
+      if (pins.length === 0) {
+        const el = document.createElement('div')
+        el.innerHTML =
+          '<div style="width:44px;height:44px;border-radius:50%;background:#d9a441;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:18px;">📷</div>'
+        const overlay = new window.kakao.maps.CustomOverlay({
+          position: new window.kakao.maps.LatLng(centerCoords.lat, centerCoords.lng),
+          content: el,
+          yAnchor: 0.5,
+        })
+        overlay.setMap(map)
+        overlaysRef.current.push(overlay)
+      }
+      pins.forEach((r) => {
+        const el = document.createElement('div')
+        el.innerHTML =
+          '<div style="width:34px;height:34px;border-radius:50%;background:#dff77e;border:2px solid #2a2035;display:flex;align-items:center;justify-content:center;font-size:15px;">🔍</div>'
+        el.style.cursor = 'pointer'
+        el.addEventListener('click', () => setPinCard(r))
+        const overlay = new window.kakao.maps.CustomOverlay({ position: new window.kakao.maps.LatLng(r.lat, r.lng), content: el, yAnchor: 0.5 })
+        overlay.setMap(map)
+        overlaysRef.current.push(overlay)
       })
-      overlay.setMap(map)
-      overlaysRef.current.push(overlay)
     }
 
     if (stage === 'write') {
@@ -398,7 +444,7 @@ export default function ThemeCycle({
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, mapReady, selectedSpotId, spots, userPos])
+  }, [stage, mapReady, selectedSpotId, spots, userPos, huntRecords])
 
   useEffect(() => {
     const m = mapInstanceRef.current
@@ -420,27 +466,85 @@ export default function ThemeCycle({
     huntInputRef.current?.click()
   }
 
-  function handleHuntFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleHuntFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      setCapturedPhoto(reader.result as string)
-      setStage('stamp')
-    }
-    reader.readAsDataURL(file)
+    const dataUrl = await compressImage(file, 1280)
+    setCapturedPhoto(dataUrl)
+    setHuntResult(null)
+    setHuntErr('')
+    setHuntSavedNo(0)
+    setPinCard(null)
+    setStage('scan')
+    analyzeHunt(dataUrl)
   }
 
-  function handleStamped(count: number) {
+  async function analyzeHunt(dataUrl: string) {
+    setHuntErr('')
+    const t0 = Date.now()
+    let result: HuntResult | null = null
+    let err = ''
+    try {
+      const res = await fetch('/api/hunt-decode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl, targets: todaySet.hunt.words }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) err = data?.error || '해독에 실패했어요. 잠시 후 다시 시도해 주세요.'
+      else if (!data?.found) err = '사진에서 읽을 수 있는 한국어 글자를 찾지 못했어요. 글자가 크게 보이도록 다시 찍어보세요.'
+      else result = data as HuntResult
+    } catch {
+      err = '네트워크 오류가 났어요. 잠시 후 다시 시도해 주세요.'
+    }
+    const wait = 2000 - (Date.now() - t0)
+    if (wait > 0) await sleep(wait)
+    if (!result) {
+      setHuntErr(err)
+      return
+    }
+    setHuntResult(result)
+    setDecodePhase(0)
+    setStage('decode')
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(20)
+    setTimeout(() => setDecodePhase(1), 1300)
+    setTimeout(() => setDecodePhase(2), 2300)
+    setTimeout(() => setDecodePhase(3), 3200)
+  }
+
+  async function collectHunt() {
+    if (!huntResult || !capturedPhoto || huntSavedNo) return
+    const thumb = await makeThumb(capturedPhoto)
+    const base = userPos ?? AREAS.find((a) => a.id === loc.areaId) ?? AREAS[0]
+    // 같은 자리에서 여러 장을 모아도 핀이 겹치지 않도록 아주 조금 흩뿌린다
+    const jitter = () => (Math.random() - 0.5) * 0.0006
+    addHuntRecord({
+      expression: huntResult.expression,
+      sentence: huntResult.sentence,
+      easy: huntResult.easy,
+      action: huntResult.action,
+      category: huntResult.category,
+      matched: huntResult.matchesTarget,
+      area: areaLabel,
+      lat: base.lat + jitter(),
+      lng: base.lng + jitter(),
+      photo: thumb,
+    })
+    const list = getHuntRecords()
+    setHuntRecords(list)
+    setArchiveCount(list.length)
+    setHuntSavedNo(list.length)
     const next: ThemeRecord = {
       ...record,
       hunt: true,
-      huntPhoto: capturedPhoto ?? undefined,
+      huntPhoto: thumb,
       date: new Date().toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }),
     }
     setRecord(next)
-    saveThemeRecord(next)
-    setArchiveCount(count)
+    try {
+      saveThemeRecord(next)
+    } catch {}
   }
 
   function triggerWriteUpload() {
@@ -495,7 +599,7 @@ export default function ThemeCycle({
 
   return (
     <div className={styles.wrap}>
-      <style>{'@keyframes paperIn{from{opacity:0;transform:translateX(36px) rotate(1.5deg)}to{opacity:1;transform:none}} .ttPress:active{background:#dff77e!important;color:#2a2035!important}'}</style>
+      <style>{'@keyframes huntScan{from{top:0}to{top:calc(100% - 3px)}} @keyframes huntBlink{0%,100%{opacity:.4}50%{opacity:1}} @keyframes huntGlow{0%{opacity:0}40%{opacity:1}100%{opacity:1}} @keyframes decodeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}} @keyframes paperIn{from{opacity:0;transform:translateX(36px) rotate(1.5deg)}to{opacity:1;transform:none}} .ttPress:active{background:#dff77e!important;color:#2a2035!important}'}</style>
       <Script
         src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoKey}&autoload=false&libraries=services`}
         strategy="afterInteractive"
@@ -508,7 +612,7 @@ export default function ThemeCycle({
         <div>
           <div className={styles.title}>
             {stage === 'hunt' && '단어 사냥'}
-            {stage === 'stamp' && '나의 발견'}
+            {(stage === 'scan' || stage === 'decode') && '단어 해독'}
             {stage === 'write' && '필사 스팟'}
             {stage === 'convert' && '필사 스팟'}
             {stage === 'photo' && '필사 스팟'}
@@ -542,14 +646,37 @@ export default function ThemeCycle({
             <div className={styles.handle} />
             <div style={{ padding: '16px 16px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {renderLocChips()}
-              <span className="label-mono">WORD HUNT</span>
-              <p style={{ marginTop: 8, fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 300, lineHeight: 1.6, color: 'var(--text-primary)' }}>
-                {THEME.huntPrompt}
+              <span className="label-mono">TODAY&apos;S HUNT</span>
+              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 18, fontWeight: 800, lineHeight: 1.3, color: 'var(--text-primary)' }}>
+                {todaySet.hunt.title}을
+                <br />
+                발견하세요
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {todaySet.hunt.words.map((w) => (
+                  <span key={w} style={{ padding: '4px 10px', borderRadius: 999, background: '#dff77e', color: '#2a2035', fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 700 }}>
+                    {w}
+                  </span>
+                ))}
+              </div>
+              <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 300, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+                간판·안내문·공지를 글자가 크게 보이게 찍어보세요. 사진은 해독을 위해 AI로 전송돼요. 얼굴·연락처가 나오지 않게 찍어주세요.
               </p>
+              {pinCard && (
+                <div style={{ padding: 12, borderRadius: 14, background: '#dff77e', color: '#2a2035', fontFamily: 'var(--font-sans)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                    <span>{pinCard.area} · {pinCard.category}</span>
+                    <button onClick={() => setPinCard(null)} style={{ background: 'none', border: 'none', fontSize: 11, textDecoration: 'underline', cursor: 'pointer', color: '#2a2035' }}>닫기</button>
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4 }}>{pinCard.expression}</div>
+                  <div style={{ fontSize: 12, marginTop: 2 }}>&ldquo;{pinCard.sentence}&rdquo;</div>
+                  {pinCard.easy && <div style={{ fontSize: 12, marginTop: 4 }}>↓ {pinCard.easy}</div>}
+                </div>
+              )}
             </div>
             <div className={styles.certBar}>
               <button className={styles.certBtn} onClick={triggerHuntUpload}>
-                📷 나의 '{THEME.korean}' 발견 올리기
+                📷 글자 찍고 해독하기
               </button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 16px' }}>
@@ -561,14 +688,107 @@ export default function ThemeCycle({
         </>
       )}
 
-      {stage === 'stamp' && capturedPhoto && (
-        <StampCard
-          photo={capturedPhoto}
-          theme={THEME}
-          location={`${areaLabel} · SEOUL`}
-          onStamped={handleStamped}
-          onFinish={() => (onClose ? onClose() : setStage('hunt'))}
-        />
+      {stage === 'scan' && capturedPhoto && (
+        <div className={styles.sheet} style={{ ...paperStyle, padding: '20px 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <span className="label-mono">DECODING</span>
+          <div style={{ position: 'relative', lineHeight: 0, borderRadius: 16, overflow: 'hidden' }}>
+            <img src={capturedPhoto} alt="찍은 사진" style={{ width: '100%', display: 'block', filter: huntErr ? 'grayscale(0.6)' : 'none' }} />
+            {!huntErr && <div style={{ position: 'absolute', left: 0, right: 0, height: 3, background: '#dff77e', boxShadow: '0 0 14px 6px rgba(223,247,126,0.8)', animation: 'huntScan 1.4s ease-in-out infinite alternate' }} />}
+          </div>
+          {huntErr ? (
+            <>
+              <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: 14, lineHeight: 1.6, color: 'var(--text-primary)' }}>{huntErr}</p>
+              <button className={`${styles.certBtn} ttPress`} onClick={() => { setHuntErr(''); setStage('hunt') }}>
+                다시 찍기
+              </button>
+            </>
+          ) : (
+            <p style={{ margin: 0, textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--text-secondary)', animation: 'huntBlink 1.2s ease-in-out infinite' }}>
+              표현을 찾는 중…
+            </p>
+          )}
+        </div>
+      )}
+
+      {stage === 'decode' && capturedPhoto && huntResult && (
+        <div className={styles.sheet} style={{ ...paperStyle, padding: '20px 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <span className="label-mono">NEW EXPRESSION FOUND</span>
+          <div style={{ position: 'relative', lineHeight: 0, borderRadius: 16, overflow: 'hidden' }}>
+            <img src={capturedPhoto} alt="발견한 글자" style={{ width: '100%', display: 'block' }} />
+            {huntResult.box ? (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `${huntResult.box.x * 100}%`,
+                  top: `${huntResult.box.y * 100}%`,
+                  width: `${huntResult.box.w * 100}%`,
+                  height: `${huntResult.box.h * 100}%`,
+                  borderRadius: 8,
+                  border: '2px solid #dff77e',
+                  background: 'rgba(223,247,126,0.14)',
+                  boxShadow: '0 0 0 9999px rgba(20,10,40,0.55), 0 0 16px 4px rgba(223,247,126,0.9), 0 0 40px 12px rgba(223,247,126,0.45)',
+                  animation: 'huntGlow 1.1s ease-out',
+                }}
+              />
+            ) : (
+              <div style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 0 40px 10px rgba(223,247,126,0.75)', animation: 'huntGlow 1.1s ease-out' }} />
+            )}
+          </div>
+
+          {decodePhase >= 1 && (
+            <div style={{ padding: 16, borderRadius: 18, background: 'var(--bg-card)', border: '1px solid var(--purple-500)', fontFamily: 'var(--font-sans)', color: 'var(--text-primary)', animation: 'decodeIn 0.45s ease-out' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="label-mono">발견 카드 #{String(huntSavedNo || huntRecords.length + 1).padStart(3, '0')}</span>
+                <Sticker>{huntResult.matchesTarget ? '오늘의 표현군 ✓' : '자유 발견 ✳'}</Sticker>
+              </div>
+              <div style={{ marginTop: 10, fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em' }}>
+                <mark style={{ background: '#dff77e', color: '#2a2035', padding: '0 4px', borderRadius: 4 }}>{huntResult.expression}</mark>
+              </div>
+              <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text-secondary)' }}>&ldquo;{huntResult.sentence}&rdquo;</div>
+              {decodePhase >= 2 && huntResult.easy && (
+                <div style={{ marginTop: 10, fontSize: 15, fontWeight: 700, animation: 'decodeIn 0.45s ease-out' }}>↓ {huntResult.easy}</div>
+              )}
+              {decodePhase >= 3 && (
+                <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6, fontSize: 12, animation: 'decodeIn 0.45s ease-out' }}>
+                  {huntResult.action && <span style={{ padding: '4px 10px', borderRadius: 999, background: 'var(--bg-elevated)', border: '0.5px solid var(--border-default)' }}>행동: {huntResult.action}</span>}
+                  <span style={{ padding: '4px 10px', borderRadius: 999, background: 'var(--bg-elevated)', border: '0.5px solid var(--border-default)' }}>{huntResult.category}</span>
+                  <span style={{ padding: '4px 10px', borderRadius: 999, background: 'var(--bg-elevated)', border: '0.5px solid var(--border-default)' }}>📍 {areaLabel}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {decodePhase >= 3 &&
+            (huntSavedNo ? (
+              <>
+                <p style={{ margin: 0, textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+                  발견 카드 #{String(huntSavedNo).padStart(3, '0')} 수집 완료 · MY에서 다시 볼 수 있어요
+                </p>
+                <button className={`${styles.certBtn} ttPress`} onClick={() => setStage('write')}>
+                  오늘의 필사 하러 가기 →
+                </button>
+                <button
+                  className="ttPress"
+                  onClick={() => setStage('hunt')}
+                  style={{ padding: 14, borderRadius: 14, border: '0.5px solid var(--border-default)', background: 'var(--bg-card)', fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--text-primary)', cursor: 'pointer' }}
+                >
+                  하나 더 찾기
+                </button>
+              </>
+            ) : (
+              <>
+                <button className={`${styles.certBtn} ttPress`} onClick={collectHunt}>
+                  발견 카드로 수집하기
+                </button>
+                <button
+                  onClick={() => setStage('hunt')}
+                  style={{ background: 'none', border: 'none', fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'underline', cursor: 'pointer' }}
+                >
+                  수집하지 않고 다시 찍기
+                </button>
+              </>
+            ))}
+        </div>
       )}
 
       {stage === 'write' && (
