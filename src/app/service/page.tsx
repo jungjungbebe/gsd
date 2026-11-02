@@ -1,5 +1,6 @@
 'use client'
 
+import { UserAvatar } from '@/components/Avatar'
 import { useState, useEffect } from 'react'
 import TranslatorOrb from '@/components/TranslatorOrb'
 import TranslatorSection from '@/components/TranslatorSection'
@@ -41,7 +42,7 @@ export default function ServicePage() {
     <main className={styles.page}>
       <header className={styles.header}>
         <img src="/tutone-logo.svg" alt="Tutone" className={styles.logo} />
-        <div className={styles.avatar}>U</div>
+        <div className={styles.avatar}><UserAvatar fallback="U" /></div>
       </header>
 
       <div className={`${styles.fadeItem} ${show.orb ? styles.fadeIn : ''}`}>

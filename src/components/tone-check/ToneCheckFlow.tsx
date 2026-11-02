@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { addPatternRecord, addPlaybookRecord, addScrapRecord, getScrapRecords, removeScrapRecord, type ToneCheckScrapRecord } from '@/lib/tutone-records'
 import { createPortal } from 'react-dom'
 import { getScope, scopedKey, useScopeReady } from '@/lib/tutone-scope'
+import { UserAvatar } from '@/components/Avatar'
 
 const TranslatorOrb = dynamic(() => import('@/components/TranslatorOrb'), { ssr: false })
 
@@ -446,7 +447,7 @@ export default function ToneCheckFlow() {
               justifyContent: 'center',
             }}
           >
-            U
+            <UserAvatar fallback="U" />
           </div>
         </header>
       </FadeIn>

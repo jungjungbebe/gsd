@@ -16,6 +16,7 @@ import {
   type WritingRecord,
 } from '@/lib/tutone-records'
 import { useScopeReady } from '@/lib/tutone-scope'
+import { UserAvatar } from '@/components/Avatar'
 import styles from './my.module.css'
 
 const TABS = [
@@ -107,7 +108,7 @@ export default function MyPage() {
             <div className={styles.avatarArea}>
               <div className={styles.speechBubble}>Hello~</div>
               <div className={styles.avatar}>
-                <span className={styles.avatarText}>U</span>
+                <span className={styles.avatarText} style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><UserAvatar fallback="U" /></span>
               </div>
             </div>
             <div className={styles.nameArea}>

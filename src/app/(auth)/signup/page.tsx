@@ -3,12 +3,14 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { AvatarPicker, DEFAULT_AVATAR } from '@/components/Avatar'
 import styles from '../auth.module.css'
 
 export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [nickname, setNickname] = useState('')
+  const [avatar, setAvatar] = useState(DEFAULT_AVATAR)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -27,6 +29,7 @@ export default function SignupPage() {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
             nickname,
+            avatar,
           },
         },
       })
@@ -102,6 +105,12 @@ export default function SignupPage() {
                 placeholder="사용할 닉네임을 입력해주세요"
                 className={styles.input}
               />
+            </div>
+
+            <div>
+              <label className={styles.label}>AVATAR</label>
+              <p className={styles.sub} style={{ margin: '0 0 10px' }}>나를 나타낼 구체를 골라주세요. 나중에 바꿀 수 있어요.</p>
+              <AvatarPicker value={avatar} onChange={setAvatar} />
             </div>
 
             <div>

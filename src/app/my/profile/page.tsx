@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { signOutAndGo } from '@/lib/tutone-session'
+import { AvatarPicker, DEFAULT_AVATAR, isAvatarId } from '@/components/Avatar'
 import styles from '../../(auth)/auth.module.css'
 
 export default function ProfileEditPage() {
@@ -11,6 +12,7 @@ export default function ProfileEditPage() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [email, setEmail] = useState('')
   const [nickname, setNickname] = useState('')
+  const [avatar, setAvatar] = useState(DEFAULT_AVATAR)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -24,6 +26,8 @@ export default function ProfileEditPage() {
           setLoggedIn(true)
           setEmail(data.user.email ?? '')
           setNickname(((data.user.user_metadata as { nickname?: string } | undefined)?.nickname) ?? '')
+          const av = (data.user.user_metadata as { avatar?: string } | undefined)?.avatar
+          if (isAvatarId(av)) setAvatar(av)
         }
       } catch {}
       setReady(true)
@@ -47,7 +51,7 @@ export default function ProfileEditPage() {
     setSaving(true)
     try {
       const supabase = createClient()
-      const { data, error: updateError } = await supabase.auth.updateUser({ data: { nickname: name } })
+      const { data, error: updateError } = await supabase.auth.updateUser({ data: { nickname: name, avatar } })
       if (updateError) {
         setError(updateError.message)
         return
@@ -84,7 +88,7 @@ export default function ProfileEditPage() {
             </>
           ) : (
             <>
-              <p className={styles.sub}>닉네임을 바꾸거나 로그아웃할 수 있어요</p>
+              <p className={styles.sub}>닉네임과 아바타를 바꾸거나 로그아웃할 수 있어요</p>
               <div className={styles.divider} />
 
               {error && <div className={styles.error}>{error}</div>}
@@ -111,6 +115,11 @@ export default function ProfileEditPage() {
                     maxLength={20}
                     className={styles.input}
                   />
+                </div>
+
+                <div>
+                  <label className={styles.label}>AVATAR</label>
+                  <AvatarPicker value={avatar} onChange={setAvatar} />
                 </div>
 
                 <button type="submit" disabled={saving} className={styles.button}>
