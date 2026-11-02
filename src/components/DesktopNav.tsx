@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { UserAvatar } from '@/components/Avatar'
@@ -14,6 +15,22 @@ const LINKS = [
 
 export default function DesktopNav() {
   const pathname = usePathname()
+
+  // PC에서는 화면 폭에 비례해 전체 요소를 키워 화면을 꽉 채운다 (기준 960px, 최대 2배)
+  useEffect(() => {
+    const apply = () => {
+      const w = window.innerWidth
+      const h = window.innerHeight
+      const ds = w >= 1024 ? Math.min(2, Math.max(1, Math.min(w / 960, h / 830))) : 1
+      const root = document.documentElement.style
+      root.setProperty('--ds', ds.toFixed(3))
+      // 확대 후 실제로 보이는 화면 높이(상단 메뉴 제외)
+      root.setProperty('--eh', `${Math.max(560, h / ds - 68).toFixed(0)}px`)
+    }
+    apply()
+    window.addEventListener('resize', apply)
+    return () => window.removeEventListener('resize', apply)
+  }, [])
   if (pathname === '/' || pathname === '/home') return null
   return (
     <header className={styles.bar}>

@@ -503,6 +503,8 @@
 /* ── PC: 좌 프로필 카드 / 우 탭+목록 2단 ── */
 @media (min-width: 1024px) {
   .page {
+    zoom: var(--ds, 1);
+    min-height: var(--eh, 700px);
     max-width: none;
     display: grid;
     grid-template-columns: 340px 1fr;

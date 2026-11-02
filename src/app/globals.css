@@ -150,7 +150,7 @@
 
 /* ── PC(1024px 이상) 톤체크 레이아웃: 좌우 2단 ── */
 @media (min-width: 1024px) {
-  .tt-main { max-width: none !important; padding-bottom: 60px !important; }
+  .tt-main { min-height: 0 !important; max-width: none !important; padding-bottom: 60px !important; zoom: var(--ds, 1); }
   .tt-header { display: none !important; }
   .tt-input {
     display: grid !important;
@@ -160,8 +160,8 @@
     column-gap: 72px;
     row-gap: 0 !important;
     align-items: center;
-    min-height: min(calc(100vh - 68px), 760px);
-    padding: 24px 56px 40px !important;
+    min-height: var(--eh, 700px);
+    padding: 32px 56px 32px !important;
   }
   .tt-hero { grid-column: 1; grid-row: 1 / span 2; align-self: center; }
   .tt-orb { zoom: 1.3; }
