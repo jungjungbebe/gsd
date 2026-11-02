@@ -9,18 +9,20 @@ import { getScope, scopedKey, useScopeReady } from '@/lib/tutone-scope'
 
 const TranslatorOrb = dynamic(() => import('@/components/TranslatorOrb'), { ssr: false })
 
-interface ToneCheckDirection {
+interface ToneCheckAlternative {
   id: string
   label: string
   reasoning: string
   reply: string
 }
 
-// 한 번의 호출로 해석 + 대응 방향 3가지(첫 번째가 추천)를 모두 받아온다. 방향을 바꿔 보는 건 추가 호출 없이 화면에서만 바뀐다.
 interface ToneCheckResult {
   interpretation: string
   tags: string[]
-  directions: ToneCheckDirection[]
+  evidenceCount: number
+  evidenceDistribution: { label: string; pct: number }[]
+  response: { reasoning: string; reply: string }
+  alternatives: ToneCheckAlternative[]
   isSample: boolean
   counterpart?: string
 }
@@ -129,9 +131,8 @@ export default function ToneCheckFlow() {
   const [submittedText, setSubmittedText] = useState('')
   const [result, setResult] = useState<ToneCheckResult | null>(null)
   const [error, setError] = useState('')
+  const [evidenceExpanded, setEvidenceExpanded] = useState(false)
   const [selectedAltId, setSelectedAltId] = useState<string | null>(null)
-  const [notice, setNotice] = useState('')
-  const [checkStep, setCheckStep] = useState(0)
   const [counterpart, setCounterpart] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [likes, setLikes] = useState(0)
@@ -175,18 +176,6 @@ export default function ToneCheckFlow() {
     return () => clearTimeout(t)
   }, [stage])
 
-  // 분석 중 단계 표시 (실제 진행률이 아니라 처리 순서를 보여준다)
-  useEffect(() => {
-    if (stage !== 'checking') return
-    setCheckStep(0)
-    const a = setTimeout(() => setCheckStep(1), 1500)
-    const b = setTimeout(() => setCheckStep(2), 3500)
-    return () => {
-      clearTimeout(a)
-      clearTimeout(b)
-    }
-  }, [stage])
-
   // 같은 메시지 + 같은 상대 조합은 한 번만 호출하고 결과를 기억해둔다 (토큰 절약)
   const resultCache = useRef<Map<string, ToneCheckResult>>(new Map())
 
@@ -196,6 +185,7 @@ export default function ToneCheckFlow() {
     if (cached) {
       setError('')
       setResult(cached)
+      setEvidenceExpanded(false)
       setSelectedAltId(null)
       setStage('result')
       if (opts?.recordPattern) {
@@ -223,6 +213,7 @@ export default function ToneCheckFlow() {
       }
       if (!data.isSample) resultCache.current.set(cacheKey, data)
       setResult(data)
+      setEvidenceExpanded(false)
       setSelectedAltId(null)
       setStage('result')
       // 내 패턴 record: 새로운 상황을 "완료"했을 때만 기록 (같은 상황에 대한 상대방 재선택 refinement는 기록 안 함)
@@ -243,7 +234,8 @@ export default function ToneCheckFlow() {
     const text = input.trim()
     if (!text) return
     setSubmittedText(text)
-    runCheck(text, counterpart, { recordPattern: true })
+    setCounterpart(null)
+    runCheck(text, null, { recordPattern: true })
     // 내 패턴: 새로운 상황을 체크할 때마다 +1 (같은 상황에 대한 상대방 재선택은 카운트하지 않음)
     setPatternCount((n) => {
       const next = n + 1
@@ -262,13 +254,14 @@ export default function ToneCheckFlow() {
     const next = counterpart === value ? null : value
     setCounterpart(next)
     runCheck(submittedText, next)
-    setNotice(next ? `${next} 맥락으로 다시 정리했어요.` : '보낸 사람 정보 없이 다시 정리했어요.')
-    setTimeout(() => setNotice(''), 3500)
   }
 
-  const activeDirection = result ? result.directions.find((a) => a.id === selectedAltId) ?? result.directions[0] : undefined
-  const activeReasoning = activeDirection?.reasoning
-  const activeReply = activeDirection?.reply
+  const activeReasoning = selectedAltId
+    ? result?.alternatives.find((a) => a.id === selectedAltId)?.reasoning ?? result?.response.reasoning
+    : result?.response.reasoning
+  const activeReply = selectedAltId
+    ? result?.alternatives.find((a) => a.id === selectedAltId)?.reply ?? result?.response.reply
+    : result?.response.reply
 
   function handleToggleScrap() {
     if (!activeReply) return
@@ -276,7 +269,7 @@ export default function ToneCheckFlow() {
     if (existing.length > 0) {
       existing.forEach((r) => removeScrapRecord(r.id))
     } else {
-      const alt = activeDirection
+      const alt = selectedAltId ? result?.alternatives.find((a) => a.id === selectedAltId) : null
       addScrapRecord({
         originalText: submittedText,
         situationCategory: result?.tags?.[0] || '기타 요청',
@@ -344,7 +337,7 @@ export default function ToneCheckFlow() {
 
   // MY PLAYBOOK 상세페이지에서 다시 볼 수 있도록 저장한 대응을 record로 함께 보관
   function savePlaybookRecord() {
-    const alt = activeDirection
+    const alt = selectedAltId ? result?.alternatives.find((a) => a.id === selectedAltId) : null
     addPlaybookRecord({
       originalText: submittedText,
       situationCategory: result?.tags?.[0] || '기타 요청',
@@ -359,6 +352,7 @@ export default function ToneCheckFlow() {
     setSubmittedText('')
     setResult(null)
     setError('')
+    setEvidenceExpanded(false)
     setSelectedAltId(null)
     setCounterpart(null)
     setCopied(false)
@@ -467,85 +461,179 @@ export default function ToneCheckFlow() {
         }}
       >
         {stage === 'input' && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14, padding: '0 20px 4px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, ...{ opacity: show.orb ? 1 : 0, transform: show.orb ? 'translate3d(0,0,0)' : 'translate3d(0,16px,0)', transition: 'opacity 1.2s cubic-bezier(0.25,0.1,0.25,1), transform 1.2s cubic-bezier(0.25,0.1,0.25,1)' } }}>
-              <div style={{ transform: focused || input.length > 0 ? 'scale(1.06)' : 'scale(1)', transition: 'transform 0.4s ease' }}>
-                <TranslatorOrb isActive={focused || input.length > 0} size={96} />
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              // space-between 대신 clamp: 실제 폰 높이(~700~850px)에서는 화면 높이에 비례해 자연스럽게 벌어지고,
+              // 데스크탑처럼 창이 비정상적으로 긴 경우엔 40px에서 상한선이 걸려 그룹 사이가 무한정 벌어지지 않음
+              gap: 'clamp(16px, 4vh, 40px)',
+              padding: '4px 20px 4px',
+            }}
+          >
+            {/* HeroGroup: 말풍선 + sphere + TONE CHECK + heading + description */}
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 6,
+                opacity: show.orb ? 1 : 0,
+                transform: show.orb ? 'translate3d(0,0,0)' : 'translate3d(0,16px,0)',
+                transition: 'opacity 2s cubic-bezier(0.25,0.1,0.25,1), transform 2s cubic-bezier(0.25,0.1,0.25,1)',
+              }}
+            >
+              <div
+                style={{
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 999,
+                  padding: '8px 16px',
+                  fontSize: 12,
+                  color: 'var(--text-primary)',
+                }}
+              >
+                메시지를 붙여넣어 보세요
               </div>
-              <div style={{ textAlign: 'center', marginTop: 4 }}>
-                <span className="label-mono" style={{ color: 'var(--purple-500)', fontSize: 11 }}>TONE CHECK</span>
-                <p style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text-primary)', margin: '6px 0 6px' }}>이 말, 어떻게 들릴까요?</p>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, margin: 0 }}>
-                  짧은 업무 메시지를 붙여넣으면
+              <div
+                style={{
+                  width: 9,
+                  height: 9,
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-default)',
+                  borderTop: 'none',
+                  borderLeft: 'none',
+                  transform: 'rotate(45deg)',
+                  margin: '-6px 0 2px',
+                }}
+              />
+              <div
+                style={{
+                  transform: focused || input.length > 0 ? 'scale(1.04)' : 'scale(1)',
+                  transition: 'transform 0.4s ease',
+                }}
+              >
+                <TranslatorOrb isActive={focused || input.length > 0} size={184} />
+              </div>
+
+              <div style={{ textAlign: 'center', marginTop: 14 }}>
+                <span className="label-mono" style={{ color: 'var(--purple-500)', fontSize: 11 }}>
+                  TONE CHECK
+                </span>
+                <p style={{ fontSize: 21, fontWeight: 500, letterSpacing: '-0.02em', color: 'var(--text-primary)', margin: '7px 0 8px' }}>
+                  이 말, 어떻게 들릴까요?
+                </p>
+                <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+                  애매한 회사 메시지나 짧은 대화를 붙여넣어 보세요.
                   <br />
-                  의미와 다음 대응을 함께 정리해드려요.
+                  뜻부터 맥락, 지금 할 수 있는 대응까지 정리해드릴게요.
                 </p>
               </div>
             </div>
 
-            <div style={{ ...{ background: 'rgba(255,252,246,0.94)', border: '0.5px solid rgba(255,255,255,0.8)', boxShadow: '0 4px 24px rgba(160,120,200,0.14)', borderRadius: 'var(--radius-lg)' }, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, ...{ opacity: show.content ? 1 : 0, transform: show.content ? 'translate3d(0,0,0)' : 'translate3d(0,16px,0)', transition: 'opacity 1.2s cubic-bezier(0.25,0.1,0.25,1), transform 1.2s cubic-bezier(0.25,0.1,0.25,1)' } }}>
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-                placeholder="메시지 또는 짧은 대화를 붙여넣어 주세요"
-                maxLength={MAX_LEN}
-                rows={4}
-                className="w-full outline-none resize-none"
-                style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--text-primary)', caretColor: 'var(--purple-500)', background: '#fff', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', padding: '12px 14px' }}
-              />
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -6 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                  {input.length.toLocaleString()} / {MAX_LEN.toLocaleString()}
-                </span>
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 8 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>누가 보냈나요?</span>
-                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>선택하면 더 정확해져요</span>
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {COUNTERPARTS.map((c) => {
-                    const on = counterpart === c
-                    return (
-                      <button
-                        key={c}
-                        onClick={() => setCounterpart(on ? null : c)}
-                        style={{ flex: 1, padding: '10px 0', borderRadius: 12, fontSize: 13.5, fontWeight: 600, background: on ? 'var(--purple-500)' : '#fff', color: on ? '#fff' : 'var(--text-primary)', border: on ? '1px solid var(--purple-500)' : '1px solid var(--border-default)' }}
-                      >
-                        {c}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <button
-                onClick={handleSubmit}
-                disabled={!input.trim()}
-                className="active:scale-95 transition-transform"
-                style={{ width: '100%', padding: 15, borderRadius: 14, background: input.trim() ? 'var(--purple-500)' : 'var(--bg-elevated)', border: input.trim() ? 'none' : '1px solid var(--border-default)', fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em', color: input.trim() ? '#fff' : 'var(--text-secondary)' }}
+            {/* InputGroup: composer + privacy helper */}
+            <div
+              style={{
+                opacity: show.content ? 1 : 0,
+                transform: show.content ? 'translate3d(0,0,0)' : 'translate3d(0,16px,0)',
+                transition: 'opacity 2s cubic-bezier(0.25,0.1,0.25,1), transform 2s cubic-bezier(0.25,0.1,0.25,1)',
+              }}
+            >
+              <div
+                style={{
+                  background: 'rgba(255, 255, 255, 0.25)',
+                  backdropFilter: 'blur(24px)',
+                  WebkitBackdropFilter: 'blur(24px)',
+                  border: '0.5px solid rgba(255, 255, 255, 0.5)',
+                  boxShadow: '0 4px 24px rgba(160, 120, 200, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: 18,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
               >
-                메시지 해석하기 →
-              </button>
-              {error && <p style={{ fontSize: 12.5, color: '#c94040', margin: 0 }}>{error}</p>}
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center' }}>
-                🔒 이름·회사명·고객명 등 식별 정보는 지우고 입력해 주세요.
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onFocus={() => setFocused(true)}
+                  onBlur={() => setFocused(false)}
+                  placeholder="메시지 또는 짧은 대화를 붙여넣어 주세요..."
+                  maxLength={MAX_LEN}
+                  rows={3}
+                  className="w-full bg-transparent outline-none resize-none"
+                  style={{
+                    fontSize: 14,
+                    lineHeight: 1.6,
+                    color: 'var(--text-primary)',
+                    caretColor: 'var(--purple-500)',
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '12px 14px',
+                  }}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 1px' }}>
+                  <span style={{ fontSize: 15, opacity: 0.45 }}>📎</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                    {input.length.toLocaleString()} / {MAX_LEN.toLocaleString()}
+                  </span>
+                </div>
+                <button
+                  onClick={handleSubmit}
+                  disabled={!input.trim()}
+                  className="disabled:opacity-40 active:scale-95 transition-transform"
+                  style={{
+                    width: '100%',
+                    padding: 15,
+                    borderRadius: 14,
+                    background: 'var(--purple-500)',
+                    border: 'none',
+                    fontSize: 14.5,
+                    fontWeight: 500,
+                    letterSpacing: '-0.01em',
+                    color: '#fff',
+                  }}
+                >
+                  해석하기 →
+                </button>
+                {error && <p style={{ fontSize: 12.5, color: '#c94040' }}>{error}</p>}
+              </div>
+
+              <p style={{ fontSize: 11, color: 'var(--text-secondary)', textAlign: 'center', marginTop: 9 }}>
+                이름·회사명·고객명 등 식별 정보는 지우고 입력해 주세요.
               </p>
             </div>
 
-            <div style={{ ...{ opacity: show.content ? 1 : 0, transform: show.content ? 'translate3d(0,0,0)' : 'translate3d(0,16px,0)', transition: 'opacity 1.2s cubic-bezier(0.25,0.1,0.25,1), transform 1.2s cubic-bezier(0.25,0.1,0.25,1)' } }}>
+            {/* DiscoveryGroup: example prompts (responsive wrap) + shortcut cards */}
+            <div
+              style={{
+                opacity: show.content ? 1 : 0,
+                transform: show.content ? 'translate3d(0,0,0)' : 'translate3d(0,16px,0)',
+                transition: 'opacity 2s cubic-bezier(0.25,0.1,0.25,1), transform 2s cubic-bezier(0.25,0.1,0.25,1)',
+              }}
+            >
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>예시로 넣어볼까요?</span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>예시로 넣어볼까요?</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, maxWidth: '100%' }}>
                   {EXAMPLES.map((ex) => (
                     <button
                       key={ex}
                       onClick={() => setInput(ex)}
                       className="active:scale-95 transition-transform"
-                      style={{ fontSize: 13, color: 'var(--text-primary)', background: 'rgba(255,252,246,0.8)', border: '0.5px solid rgba(255,255,255,0.8)', borderRadius: 999, padding: '8px 14px', maxWidth: '100%' }}
+                      style={{
+                        fontSize: 12.5,
+                        color: 'var(--text-primary)',
+                        background: 'rgba(255, 255, 255, 0.35)',
+                        backdropFilter: 'blur(24px)',
+                        WebkitBackdropFilter: 'blur(24px)',
+                        border: '0.5px solid rgba(255, 255, 255, 0.6)',
+                        boxShadow: '0 4px 24px rgba(160, 120, 200, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6)',
+                        borderRadius: 999,
+                        padding: '8px 14px',
+                        maxWidth: '100%',
+                      }}
                     >
                       {ex}
                     </button>
@@ -553,190 +641,265 @@ export default function ToneCheckFlow() {
                 </div>
               </div>
 
-              {playbookCount === 0 && patternCount === 0 ? (
-                <div style={{ ...{ background: 'rgba(255,252,246,0.94)', border: '0.5px solid rgba(255,255,255,0.8)', boxShadow: '0 4px 24px rgba(160,120,200,0.14)', borderRadius: 'var(--radius-lg)' }, marginTop: 16, padding: '16px 18px', fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary)', textAlign: 'center' }}>
-                  첫 메시지를 분석하면
-                  <br />
-                  나의 업무 패턴이 여기에 쌓여요.
-                </div>
-              ) : (
-                <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
-                  {([
-                    { id: 'playbook' as const, title: '저장한 대응', count: playbookCount, sub: 'MY PLAYBOOK', href: '/my/playbook' },
-                    { id: 'pattern' as const, title: '분석한 상황', count: patternCount, sub: 'MY PATTERN', href: '/my/pattern' },
-                  ]).map((c) => (
+              {/* Shortcut cards: 2개 카드(플레이북/패턴), 클릭 시 각 상세페이지로 이동. 레이아웃/카드 높이는 고정, 숫자만 사용량에 따라 성장 */}
+              <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+                {([
+                  { id: 'playbook' as const, title: 'MY PLAYBOOK', count: playbookCount, subtitle: '쌓인 대응', href: '/my/playbook' },
+                  { id: 'pattern' as const, title: 'MY PATTERN', count: patternCount, subtitle: '체크한 상황', href: '/my/pattern' },
+                ]).map((s) => (
+                  <div
+                    key={s.id}
+                    onClick={() => router.push(s.href)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter') router.push(s.href) }}
+                    className="active:scale-95 transition-transform"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.25)',
+                      backdropFilter: 'blur(24px)',
+                      WebkitBackdropFilter: 'blur(24px)',
+                      border: '0.5px solid rgba(255, 255, 255, 0.5)',
+                      boxShadow: '0 4px 24px rgba(160, 120, 200, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6)',
+                      borderRadius: 'var(--radius-lg)',
+                      padding: '16px 8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 4,
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                    }}
+                  >
                     <div
-                      key={c.id}
-                      onClick={() => router.push(c.href)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === 'Enter') router.push(c.href) }}
-                      className="active:scale-95 transition-transform"
-                      style={{ ...{ background: 'rgba(255,252,246,0.94)', border: '0.5px solid rgba(255,255,255,0.8)', boxShadow: '0 4px 24px rgba(160,120,200,0.14)', borderRadius: 'var(--radius-lg)' }, padding: '14px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
+                        background: 'rgba(160, 120, 220, 0.1)',
+                        backdropFilter: 'blur(24px)',
+                        WebkitBackdropFilter: 'blur(24px)',
+                        border: '0.5px solid rgba(160, 120, 220, 0.2)',
+                        color: 'var(--purple-500)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
                     >
-                      <div style={{ width: 38, height: 38, flex: '0 0 auto', borderRadius: '50%', background: 'rgba(160,120,220,0.12)', color: 'var(--purple-500)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {SHORTCUT_ICONS[c.id]}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{c.title}</div>
-                        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>{c.count}개</div>
-                      </div>
+                      {SHORTCUT_ICONS[s.id]}
                     </div>
-                  ))}
-                </div>
-              )}
+                    <span style={{ fontSize: 11.5, fontWeight: 500, letterSpacing: '0.04em', color: 'var(--text-primary)', whiteSpace: 'nowrap', marginTop: 4, fontFamily: 'var(--font-mono)' }}>{s.title}</span>
+                    <span style={{ fontSize: 19, fontWeight: 600, color: 'var(--text-primary)' }}>{s.count}</span>
+                    <span style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>{s.subtitle}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
 
         {stage === 'checking' && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 30px', gap: 6 }}>
-            <TranslatorOrb isActive size={150} />
-            <p style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: '14px 0 0' }}>메시지를 살펴보고 있어요</p>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>보통 몇 초 안에 끝나요.</p>
-            <div style={{ marginTop: 22, display: 'flex', flexDirection: 'column', gap: 14, alignSelf: 'stretch', maxWidth: 300, marginInline: 'auto' }}>
-              {['문장의 핵심 의미 확인', counterpart ? `${counterpart}와의 관계 고려` : '상황과 맥락 고려', '대응 방향 정리'].map((label, i) => {
-                const done = checkStep > i
-                const active = checkStep === i
-                return (
-                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 12, opacity: done || active ? 1 : 0.45, transition: 'opacity 0.4s ease' }}>
-                    <span style={{ width: 22, height: 22, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff', background: done ? 'var(--purple-500)' : 'transparent', border: done ? 'none' : active ? '2px solid var(--purple-500)' : '1.5px solid var(--border-default)', animation: active ? 'pulse 1.2s ease-in-out infinite' : 'none' }}>
-                      {done ? '✓' : ''}
-                    </span>
-                    <span style={{ fontSize: 14, fontWeight: active ? 700 : 500, color: 'var(--text-primary)' }}>{label}</span>
-                  </div>
-                )
-              })}
-            </div>
-            <style>{'@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}'}</style>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 30px' }}>
+            <TranslatorOrb isActive size={160} />
+            <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginTop: 18 }}>메시지를 읽고 있어요</p>
+            <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 6, textAlign: 'center' }}>
+              말의 뜻과 상황을 함께 살펴보고 있어요...
+            </p>
           </div>
         )}
 
         {stage === 'result' && result && (
           <div className="px-5 flex flex-col gap-3">
+            {/* CHECK: 입력 메시지 접힌 상태 */}
             <div
-              className="text-[12px] px-3 py-2.5 flex items-center justify-between gap-2"
-              style={{ background: 'rgba(255,252,246,0.94)', border: '0.5px solid var(--border-default)', borderRadius: 14, color: 'var(--text-primary)' }}
+              className="text-[11px] px-3 py-2 flex items-center justify-between gap-2"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 14, color: 'var(--text-secondary)' }}
             >
               <span className="truncate">&ldquo;{highlightTraps(submittedText)}&rdquo;</span>
-              <button onClick={handleEdit} className="shrink-0 font-semibold" style={{ color: 'var(--purple-500)' }}>
+              <button
+                onClick={handleEdit}
+                className="shrink-0 font-semibold"
+                style={{ color: 'var(--purple-500)' }}
+              >
                 수정
               </button>
             </div>
 
-            <div style={{ ...{ background: 'rgba(255,252,246,0.94)', border: '0.5px solid rgba(255,255,255,0.8)', boxShadow: '0 4px 24px rgba(160,120,200,0.14)', borderRadius: 'var(--radius-lg)' }, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* UNDERSTAND */}
+            <div className="glass-card-elevated p-4 flex flex-col gap-3">
+              <span className="label-mono" style={{ color: 'var(--text-secondary)' }}>UNDERSTAND</span>
               <div>
-                <span className="label-mono" style={{ color: 'var(--text-secondary)', fontSize: 10 }}>UNDERSTAND</span>
-                <p className="font-bold text-[18px] mt-1" style={{ color: 'var(--text-primary)', margin: '4px 0 0' }}>
-                  이렇게 읽을 수 있어요
+                <p className="font-bold text-[16px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                  이렇게 읽힐 수 있어요
+                </p>
+                <p className="text-[13.5px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                  {result.interpretation}
                 </p>
               </div>
-              <p className="text-[14px] leading-relaxed" style={{ color: 'var(--text-primary)', margin: 0 }}>
-                {result.interpretation}
-              </p>
+
               <div className="flex flex-wrap gap-1.5">
                 {result.tags.map((tag) => (
-                  <span key={tag} className="text-[12px] font-semibold px-3 py-1" style={{ background: 'rgba(160,120,220,0.14)', color: 'var(--purple-500)', borderRadius: 999 }}>
+                  <span
+                    key={tag}
+                    className="text-[10.5px] font-semibold px-2.5 py-1"
+                    style={{ background: 'var(--glass-purple)', color: 'var(--purple-500)', borderRadius: 999 }}
+                  >
                     {tag}
                   </span>
                 ))}
               </div>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)' }}>ⓘ 단정하지 않고 가능한 해석을 보여드려요.</p>
 
-              <div style={{ borderTop: '0.5px solid var(--border-default)', paddingTop: 10 }}>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>보낸 사람</span>
+              {result.evidenceDistribution.length > 0 && (
+                <button
+                  onClick={() => setEvidenceExpanded((v) => !v)}
+                  className="text-left text-[12px] font-semibold"
+                  style={{ color: 'var(--purple-500)' }}
+                >
+                  비슷한 실제 사례 {result.evidenceCount}건 · {evidenceExpanded ? '접기 ↑' : '자세히 보기 ↓'}
+                </button>
+              )}
+
+              {evidenceExpanded && result.evidenceDistribution.length > 0 && (
+                <div className="p-3 flex flex-col gap-2" style={{ background: 'var(--bg-card)', borderRadius: 14 }}>
+                  {result.evidenceDistribution.map((row) => (
+                    <div key={row.label} className="flex items-center gap-2">
+                      <span className="text-[10.5px] w-20 shrink-0" style={{ color: 'var(--text-secondary)' }}>
+                        {row.label}
+                      </span>
+                      <div className="flex-1 h-[7px] rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
+                        <div className="h-full" style={{ width: `${row.pct}%`, background: 'var(--purple-500)' }} />
+                      </div>
+                      <span className="text-[10.5px] font-bold w-8 text-right" style={{ color: 'var(--text-primary)' }}>
+                        {row.pct}%
+                      </span>
+                    </div>
+                  ))}
+                  {result.isSample && (
+                    <span className="text-[9.5px]" style={{ color: 'var(--text-muted)' }}>
+                      예시 데이터 · 실제 응답 데이터는 베타 테스트 후 반영될 예정입니다.
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[11.5px]" style={{ color: 'var(--text-secondary)' }}>
+                  맥락이 다르다면 · 보낸 사람 알려주기 (선택)
+                </span>
+                <div className="flex gap-1.5">
                   {COUNTERPARTS.map((c) => (
                     <button
                       key={c}
                       onClick={() => handleCounterpartSelect(c)}
-                      className="text-[12px] font-semibold px-3 py-1"
-                      style={{ borderRadius: 999, background: counterpart === c ? 'var(--purple-500)' : '#fff', color: counterpart === c ? '#fff' : 'var(--text-primary)', border: '1px solid var(--border-default)' }}
+                      className="flex-1 text-[11.5px] font-semibold py-1.5"
+                      style={{
+                        borderRadius: 10,
+                        background: counterpart === c ? 'var(--purple-500)' : 'var(--bg-elevated)',
+                        color: counterpart === c ? '#fff' : 'var(--text-primary)',
+                        border: '1px solid var(--border-default)',
+                      }}
                     >
                       {c}
                     </button>
                   ))}
                 </div>
-                {notice && <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--text-purple)' }}>{notice}</p>}
               </div>
             </div>
 
-            <div style={{ ...{ background: 'rgba(255,252,246,0.94)', border: '0.5px solid rgba(255,255,255,0.8)', boxShadow: '0 4px 24px rgba(160,120,200,0.14)', borderRadius: 'var(--radius-lg)' }, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div>
-                <span className="label-mono" style={{ color: 'var(--text-secondary)', fontSize: 10 }}>RESPOND</span>
-                <p className="font-bold text-[18px]" style={{ color: 'var(--text-primary)', margin: '4px 0 0' }}>어떻게 대응할까요?</p>
-                <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--text-secondary)' }}>원하는 방향을 고르면, 그에 맞는 답변을 보여드려요.</p>
-              </div>
+            {/* RESPOND */}
+            <div className="glass-card-elevated p-4 flex flex-col gap-3">
+              <span className="label-mono" style={{ color: 'var(--text-secondary)' }}>RESPOND</span>
+              <p className="font-bold text-[16px]" style={{ color: 'var(--text-primary)' }}>
+                이렇게 대응해볼 수 있어요
+              </p>
 
-              <div className="flex gap-1.5 flex-wrap">
-                {result.directions.map((d, i) => {
-                  const on = (activeDirection?.id ?? '') === d.id
-                  return (
-                    <button
-                      key={d.id}
-                      onClick={() => setSelectedAltId(d.id)}
-                      className="text-[13px] font-semibold px-3.5 py-2"
-                      style={{ borderRadius: 999, background: on ? '#dff77e' : '#fff', color: '#2a2035', border: on ? '1px solid var(--purple-500)' : '1px solid var(--border-default)' }}
-                    >
-                      {on ? '✓ ' : ''}
-                      {d.label}
-                      {i === 0 ? ' · 추천' : ''}
-                    </button>
-                  )
-                })}
-              </div>
-
-              <div className="p-3.5 flex flex-col gap-2.5" style={{ background: '#fff', border: '1px solid var(--border-default)', borderRadius: 14 }}>
-                <span className="text-[14px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-                  &ldquo;{activeReply}&rdquo;
-                </span>
+              <div
+                className="p-3.5 flex flex-col gap-2.5"
+                style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 14 }}
+              >
                 <span className="text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
                   {activeReasoning}
                 </span>
+                <span className="text-[13px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                  &ldquo;{activeReply}&rdquo;
+                </span>
+                <div className="self-end flex gap-2">
+                  <button
+                    onClick={handleToggleScrap}
+                    className="text-[12px] font-bold px-3.5 py-2"
+                    style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)', borderRadius: 10 }}
+                  >
+                    {scrapList.some((r) => r.replyText === activeReply) ? '★ 찜됨' : '☆ 찜하기'}
+                  </button>
+                  <button
+                    onClick={handleCopy}
+                    className="text-white text-[12px] font-bold px-3.5 py-2"
+                    style={{ background: 'var(--text-primary)', borderRadius: 10 }}
+                  >
+                    {copied ? '복사됨 ✓' : '복사하기 ↗'}
+                  </button>
+                </div>
               </div>
 
-              <button
-                onClick={handleCopy}
-                className="text-white text-[14px] font-bold py-3.5 active:scale-95 transition-transform"
-                style={{ background: 'var(--purple-500)', borderRadius: 14 }}
-              >
-                {copied ? '복사됨 ✓' : '복사하기'}
-              </button>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleToggleScrap}
-                  className="flex-1 text-[13px] font-semibold py-2.5"
-                  style={{ background: '#fff', border: '1px solid var(--border-default)', color: 'var(--text-primary)', borderRadius: 12 }}
-                >
-                  {scrapList.some((r) => r.replyText === activeReply) ? '★ 찜됨' : '☆ 찜하기'}
-                </button>
+              <div className="flex flex-col gap-2">
+                <span className="text-[11.5px]" style={{ color: 'var(--text-secondary)' }}>
+                  다른 방향으로 답하고 싶다면
+                </span>
+                <div className="flex gap-1.5">
+                  {result.alternatives.map((alt) => (
+                    <button
+                      key={alt.id}
+                      onClick={() => setSelectedAltId(alt.id === selectedAltId ? null : alt.id)}
+                      className="flex-1 text-[11.5px] font-semibold py-2"
+                      style={{
+                        borderRadius: 10,
+                        background: selectedAltId === alt.id ? 'var(--text-primary)' : 'var(--bg-elevated)',
+                        color: selectedAltId === alt.id ? '#fff' : 'var(--text-primary)',
+                        border: '1px solid var(--border-default)',
+                      }}
+                    >
+                      {alt.label}
+                      {selectedAltId === alt.id ? ' ✓' : ''}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => handleVote('like')}
+                    className="text-[13px] px-2 py-1"
+                    style={{ opacity: myVote === 'like' ? 1 : 0.55 }}
+                  >
+                    👍{likes > 0 && <span className="text-[10px] ml-1">{likes}</span>}
+                  </button>
+                  <button
+                    onClick={() => handleVote('dislike')}
+                    className="text-[13px] px-2 py-1"
+                    style={{ opacity: myVote === 'dislike' ? 1 : 0.55 }}
+                  >
+                    👎{dislikes > 0 && <span className="text-[10px] ml-1">{dislikes}</span>}
+                  </button>
+                </div>
                 <button
                   onClick={handleSave}
                   disabled={saving || saved}
-                  className="flex-1 text-[13px] font-semibold py-2.5"
-                  style={{ background: '#fff', border: '1px solid var(--border-default)', color: saved ? 'var(--purple-500)' : 'var(--text-primary)', borderRadius: 12 }}
+                  className="text-[11px] font-semibold px-3 py-1.5"
+                  style={{
+                    borderRadius: 999,
+                    border: '1px solid var(--border-default)',
+                    color: saved ? 'var(--purple-500)' : 'var(--text-secondary)',
+                  }}
                 >
-                  {saved ? '저장됨 ✓' : '내 대응에 저장'}
-                </button>
-              </div>
-            </div>
-
-            <div style={{ ...{ background: 'rgba(255,252,246,0.94)', border: '0.5px solid rgba(255,255,255,0.8)', boxShadow: '0 4px 24px rgba(160,120,200,0.14)', borderRadius: 'var(--radius-lg)' }, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>이 해석이 도움됐나요?</span>
-              <div className="flex items-center gap-1.5">
-                <button onClick={() => handleVote('like')} className="text-[16px] px-2.5 py-1" style={{ opacity: myVote === 'like' ? 1 : 0.55 }}>
-                  👍
-                </button>
-                <button onClick={() => handleVote('dislike')} className="text-[16px] px-2.5 py-1" style={{ opacity: myVote === 'dislike' ? 1 : 0.55 }}>
-                  👎
+                  {saved ? '저장됨 ✓' : '저장'}
                 </button>
               </div>
             </div>
 
             <button
               onClick={handleReset}
-              className="text-center text-[14px] font-semibold py-3"
-              style={{ background: 'rgba(255,252,246,0.6)', border: '1px solid var(--border-default)', borderRadius: 14, color: 'var(--text-primary)' }}
+              className="text-center text-[12px] py-1"
+              style={{ color: 'var(--text-secondary)' }}
             >
               새로운 메시지 확인하기
             </button>

@@ -17,15 +17,6 @@ interface ToneCheckResult {
   fallbackReason?: string
 }
 
-interface ToneCheckOutput {
-  interpretation: string
-  tags: string[]
-  directions: { id: string; label: string; reasoning: string; reply: string }[]
-  isSample: boolean
-  counterpart?: string
-  fallbackReason?: string
-}
-
 const FALLBACK_PROFILES: Omit<ToneCheckResult, 'isSample' | 'counterpart'>[] = [
   {
     interpretation: '오늘 안에 처리를 기대하지만, 정확한 마감은 열어둔 요청으로 읽힐 수 있어요.',
@@ -127,16 +118,15 @@ export async function POST(req: Request) {
                 role: 'system',
                 content:
                   '당신은 한국 직장인이 받은 메시지의 톤을 해석하고 답장을 제안하는 어시스턴트입니다. 사용자는 아래 메시지를 "받은 사람"이고, 상대에게 보낼 답장을 제안해야 합니다. 아래 JSON 스키마로만 응답하고 다른 텍스트는 포함하지 마세요.\n' +
-                  '{"interpretation": string, "tags": [string,string,string], "directions": [{"id": string, "label": string, "reasoning": string, "reply": string}] (정확히 3개)}\n' +
-                  '[해석 규칙] 보낸 사람의 의도를 단정하지 마세요. "~로 읽힐 수 있어요", "~일 수도 있어요"처럼 가능성으로 쓰고, 메시지에서 확인되지 않는 의도(수정 요구, 불만, 재촉 등)를 사실처럼 덧붙이지 마세요. 의도가 분명하지 않으면 무엇이 분명하지 않은지(예: 구체적인 이유나 원하는 조치)를 한 문장으로 짚으세요. 다만 "금일 중", "리마인드"처럼 표현 자체가 뜻하는 것(오늘 안에 답이 필요한 마감, 이전 요청에 회신이 아직 없음)은 분명하게 말해도 됩니다. interpretation은 2문장 이내로 쓰고 메시지를 그대로 되풀이하지 마세요. tags는 짧고 중립적인 키워드 3개이고(예: "아쉬움", "구체성 부족", "추가 확인 필요"), 의도가 불명확하면 "추가 확인 필요"를 포함하세요.\n' +
-                  '[답장 규칙] 모든 reply는 사용자가 그대로 보내도 어색하지 않은 자연스러운 답장이어야 합니다. 보통 "네, 확인했습니다."처럼 받았다는 말로 시작하세요. 담백한 업무 말투(합니다체)로 1~2문장만 쓰고, 과한 사과, 감탄사, 느낌표, 이모지는 쓰지 마세요. 보낸 사람의 문장을 그대로 따라 말하지 마세요(예: "발주서 송부를 확인하겠습니다"처럼 어색하게 되풀이하는 것은 금지). 메시지에 없는 사실이나 사용자가 정하지 않은 약속(구체적 시간, 처리 완료 등)을 지어내지 말고, 필요하면 "확인 후 회신드리겠습니다"처럼 안전한 표현이나 [시간] 같은 빈칸을 쓰세요. directions 3개는 서로 다른 대응 전략이어야 하고(예: 즉시 확인 / 진행상황 공유 / 일정 조율), 첫 번째가 추천 대응입니다. 메시지에서 무엇이 문제인지, 상대가 무엇을 원하는지 알 수 없으면 잘못을 인정하거나 개선을 약속하지 말고, 구체적으로 되묻는 대응을 첫 번째(추천)로 두세요. label은 짧은 명사구, reasoning은 한 문장으로 쓰세요.\n' +
+                  '{"interpretation": string, "tags": [string,string,string], "response": {"reasoning": string, "reply": string}, "alternatives": [{"id": string, "label": string, "reasoning": string, "reply": string}] (정확히 3개)}\n' +
+                  '[해석 규칙] interpretation은 2문장 이내로, 보낸 사람이 실제로 원하는 것(요청/확인/재촉 등)과 뉘앙스를 짚으세요. 예: "리마인드"는 이전 요청에 아직 회신이 없다는 뜻, "금일 중"은 오늘 안에 답이 필요하다는 마감입니다. 메시지를 그대로 되풀이하지 마세요. tags는 짧은 키워드 3개입니다.\n' +
+                  '[답장 규칙] 모든 reply는 사용자가 그대로 보내도 어색하지 않은 자연스러운 답장이어야 합니다. 보통 "네, 확인했습니다."처럼 받았다는 말로 시작하세요. 담백한 업무 말투(합니다체)로 1~2문장만 쓰고, 과한 사과, 감탄사, 느낌표, 이모지는 쓰지 마세요. 보낸 사람의 문장을 그대로 따라 말하지 마세요(예: "발주서 송부를 확인하겠습니다"처럼 어색하게 되풀이하는 것은 금지). 메시지에 없는 사실이나 사용자가 정하지 않은 약속(구체적 시간, 처리 완료 등)을 지어내지 말고, 필요하면 "확인 후 회신드리겠습니다"처럼 안전한 표현이나 [시간] 같은 빈칸을 쓰세요. alternatives 3개는 서로 다른 대응 전략이어야 하고(예: 즉시 확인 / 진행상황 공유 / 일정 조율), label은 짧은 명사구, reasoning은 한 문장으로 쓰세요.\n' +
                   '[예시] 받은 메시지: "발주서 송부건 관련하여 리마인드 드립니다. 금일 중으로 확인 부탁드립니다." → interpretation: "이전에 요청한 발주서 송부 건에 아직 회신이 없어 다시 챙기는 메시지예요. 오늘 안에 확인 답변이 필요해요." / reply: "네, 확인했습니다. 오늘 중으로 회신드리겠습니다."' +
                   contextLine,
               },
               { role: 'user', content: text },
             ],
             temperature: 0.4,
-            max_tokens: 700,
           }),
         })
         if (!res.ok) {
@@ -151,21 +141,27 @@ export async function POST(req: Request) {
           const ok =
             typeof parsed?.interpretation === 'string' &&
             Array.isArray(parsed?.tags) &&
-            Array.isArray(parsed?.directions) &&
-            parsed.directions.length > 0
+            typeof parsed?.response?.reply === 'string' &&
+            Array.isArray(parsed?.alternatives)
           if (!ok) {
             console.error('[tone-check] OpenAI response shape invalid', cleaned.slice(0, 300))
             fallbackReason = 'bad_shape'
           } else {
-            const result: ToneCheckOutput = {
+            const result: ToneCheckResult = {
               interpretation: parsed.interpretation,
               tags: parsed.tags.slice(0, 3),
-              directions: parsed.directions.slice(0, 3).map((a: any, i: number) => ({
-                id: String(a?.id ?? `dir${i}`),
+              response: {
+                reasoning: String(parsed.response.reasoning ?? ''),
+                reply: parsed.response.reply,
+              },
+              alternatives: parsed.alternatives.slice(0, 3).map((a: any, i: number) => ({
+                id: String(a?.id ?? `alt${i}`),
                 label: String(a?.label ?? '다른 방향'),
                 reasoning: String(a?.reasoning ?? ''),
                 reply: String(a?.reply ?? ''),
               })),
+              evidenceCount: 0,
+              evidenceDistribution: [],
               isSample: false,
               counterpart: counterpartLabel,
             }
@@ -181,14 +177,7 @@ export async function POST(req: Request) {
     }
 
     const fallback = pickFallback(text)
-    const result: ToneCheckOutput = {
-      interpretation: fallback.interpretation,
-      tags: fallback.tags,
-      directions: [{ id: 'rec', label: '추천 대응', ...fallback.response }, ...fallback.alternatives.slice(0, 2)],
-      isSample: true,
-      counterpart: counterpartLabel,
-      fallbackReason,
-    }
+    const result: ToneCheckResult = { ...fallback, isSample: true, counterpart: counterpartLabel, fallbackReason }
     return NextResponse.json(result)
   } catch {
     return NextResponse.json({ error: '분석에 실패했습니다.' }, { status: 500 })
