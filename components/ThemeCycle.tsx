@@ -551,7 +551,11 @@ export default function ThemeCycle({
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) err = data?.error || '해독에 실패했어요. 잠시 후 다시 시도해 주세요.'
-      else if (!data?.found) err = '사진에서 읽을 수 있는 한국어 글자를 찾지 못했어요. 글자가 크게 보이도록 다시 찍어보세요.'
+      else if (!data?.found)
+        err =
+          data?.reason === 'unreadable'
+            ? '글자가 잘 보이지 않아요. 글자가 크고 또렷하게 보이도록 다시 찍어보세요.'
+            : '안내문·간판·공지처럼 해야 할 일이 적힌 글자를 찍어주세요. 화면을 찍은 사진이나 이름·상호만 있는 사진은 해독하기 어려워요.'
       else result = data as HuntResult
     } catch {
       err = '네트워크 오류가 났어요. 잠시 후 다시 시도해 주세요.'
@@ -950,7 +954,7 @@ export default function ThemeCycle({
               <span style={{ width: 84, flex: '0 0 auto', fontSize: 12, color: 'var(--text-secondary)' }}>표현 유형</span>
               <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ padding: '7px 14px', borderRadius: 999, background: '#dff77e', color: '#2a2035', fontSize: 13, fontWeight: 700 }}>{huntResult.category}</span>
-                {huntResult.matchesTarget && <span style={{ padding: '7px 14px', borderRadius: 999, background: '#dff77e', color: '#2a2035', fontSize: 13, fontWeight: 700 }}>오늘의 표현군</span>}
+                <span style={{ padding: '7px 14px', borderRadius: 999, background: huntResult.matchesTarget ? '#dff77e' : 'var(--bg-elevated)', color: huntResult.matchesTarget ? '#2a2035' : 'var(--text-secondary)', border: huntResult.matchesTarget ? 'none' : '0.5px solid var(--border-default)', fontSize: 13, fontWeight: 700 }}>{huntResult.matchesTarget ? '오늘의 표현군' : '자유 발견'}</span>
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 0', borderTop: '0.5px solid var(--border-default)', fontSize: 13, color: 'var(--text-secondary)' }}>

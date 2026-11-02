@@ -56,9 +56,11 @@ export async function POST(req: Request) {
 
   const system = [
     '당신은 길거리 사진 속 한국어 글자를 읽고, 직장인이 이해하기 쉬운 말로 풀어주는 도우미입니다.',
-    '사진에서 가장 눈에 띄는 한국어 문구(간판, 안내문, 공지, 표지판 등) 하나를 고르세요.',
-    targets.length ? `오늘의 표현군: ${targets.join(', ')}. 이 중 하나가 들어간 문구가 있으면 그 문구를 우선 고르세요.` : '',
+    '이 앱은 실제 거리의 안내문·간판·공지·표지판·메뉴판·게시물에서 "해야 할 일, 조건, 기한, 금지, 변경" 같은 실용적인 안내 표현을 찾는 미션입니다.',
+    '먼저 사진이 그런 실물 안내 글자를 담고 있는지 판단하세요. 휴대폰·TV·컴퓨터 화면을 찍은 사진, 영상 썸네일, SNS·유튜브 화면, 연예·광고 포스터, 단순 이름·상호만 있는 사진이면 found를 false로 하고 reason을 "not_notice"로 하세요. 글자가 흐리거나 읽을 수 없으면 reason을 "unreadable"로 하세요.',
+    targets.length ? `오늘의 표현군: ${targets.join(', ')}. 이 중 하나가 들어간 문구가 있으면 반드시 그 문구를 고르세요. 없으면 다른 실용적 안내 표현을 고르세요.` : '',
     '규칙:',
+    '- expression은 사람 이름·명사·상호가 아니라, 무엇을 해야 하는지/조건/기한/금지/변경을 알려주는 표현(예: 사전 예약, 접수 마감, 출입 금지)이어야 합니다. 그런 표현이 없으면 found를 false로 하세요.',
     '- sentence는 사진에 보이는 글자를 그대로 옮기세요. 없는 글자를 지어내지 마세요. 80자 이내.',
     '- expression은 sentence 안에 실제로 있는 핵심 표현 1~2개 단어입니다.',
     '- matchesTarget은 expression이 오늘의 표현군과 같거나 거의 같은 뜻이면 true.',
@@ -68,7 +70,7 @@ export async function POST(req: Request) {
     '- box는 고른 문구가 있는 영역으로, 이미지 전체 대비 0~1 비율의 {x,y,w,h} (좌상단 기준)입니다.',
     '- 사람 얼굴, 이름, 전화번호 등 개인정보는 옮기지 마세요. 읽을 수 있는 한국어 글자가 없으면 found를 false로 하세요.',
     '- 한국어가 아닌 글자만 있어도 found는 false입니다.',
-    '반드시 JSON만 반환: {"found":boolean,"sentence":"","expression":"","matchesTarget":boolean,"easy":"","action":"","category":"","box":{"x":0,"y":0,"w":0,"h":0}}',
+    '반드시 JSON만 반환: {"found":boolean,"reason":"","sentence":"","expression":"","matchesTarget":boolean,"easy":"","action":"","category":"","box":{"x":0,"y":0,"w":0,"h":0}}',
   ]
     .filter(Boolean)
     .join('\n')
@@ -104,15 +106,22 @@ export async function POST(req: Request) {
     const p = JSON.parse(content)
 
     if (!p?.found || typeof p.sentence !== 'string' || !p.sentence.trim()) {
-      return NextResponse.json({ found: false })
+      return NextResponse.json({ found: false, reason: p?.reason === 'unreadable' ? 'unreadable' : 'not_notice' })
     }
     const sentence = p.sentence.trim().slice(0, 120)
-    const expression = (typeof p.expression === 'string' && p.expression.trim() ? p.expression.trim() : sentence).slice(0, 20)
+    const compact = (t: string) => t.replace(/\s+/g, '')
+    const targetHit = targets.find((t) => compact(sentence).includes(compact(t)))
+    let expression = typeof p.expression === 'string' ? p.expression.trim().slice(0, 20) : ''
+    // 표현은 반드시 문장 안에 실제로 있어야 한다. 없으면 오늘의 표현군 단어, 그것도 없으면 거절
+    if (!expression || !compact(sentence).includes(compact(expression))) {
+      if (targetHit) expression = targetHit
+      else return NextResponse.json({ found: false, reason: 'not_notice' })
+    }
     return NextResponse.json({
       found: true,
       sentence,
       expression,
-      matchesTarget: p.matchesTarget === true,
+      matchesTarget: !!targetHit,
       easy: typeof p.easy === 'string' ? p.easy.trim().slice(0, 120) : '',
       action: typeof p.action === 'string' ? p.action.trim().slice(0, 60) : '',
       category: CATEGORIES.includes(p.category) ? p.category : '안내',
