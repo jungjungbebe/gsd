@@ -499,3 +499,49 @@
 .savedScore {
   color: var(--text-secondary);
 }
+
+/* ── PC: 좌 프로필 카드 / 우 탭+목록 2단 ── */
+@media (min-width: 1024px) {
+  .page {
+    max-width: 1180px;
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    grid-template-rows: auto 1fr;
+    column-gap: 40px;
+    align-items: start;
+    padding: 32px 32px 60px;
+  }
+  .profileCard {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    margin: 0;
+    border-radius: var(--radius-xl);
+    position: sticky;
+    top: 100px;
+  }
+  .tabs {
+    grid-column: 2;
+    grid-row: 1;
+    margin-top: 0;
+    padding: 0;
+  }
+  .tab {
+    flex: none;
+    padding: 14px 28px;
+    font-size: 14px;
+  }
+  .content {
+    grid-column: 2;
+    grid-row: 2;
+    padding: 20px 0 0;
+  }
+  .profileRow {
+    flex-wrap: wrap;
+  }
+}
+
+@media (min-width: 1024px) {
+  .nameArea { flex: 1; min-width: 120px; }
+  .profileRow > :last-child { flex-basis: 100%; display: flex; gap: 8px; }
+  .profileRow > :last-child > * { flex: 1; text-align: center; }
+}

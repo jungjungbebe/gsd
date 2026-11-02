@@ -512,6 +512,7 @@ export default function ToneCheckFlow() {
                 }}
               />
               <div
+                className="tt-orb"
                 style={{
                   transform: focused || input.length > 0 ? 'scale(1.04)' : 'scale(1)',
                   transition: 'transform 0.4s ease',

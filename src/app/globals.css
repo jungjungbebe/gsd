@@ -150,19 +150,23 @@
 
 /* ── PC(1024px 이상) 톤체크 레이아웃: 좌우 2단 ── */
 @media (min-width: 1024px) {
-  .tt-main { max-width: 1120px !important; padding-bottom: 60px !important; }
+  .tt-main { max-width: 1180px !important; padding-bottom: 60px !important; }
   .tt-header { display: none !important; }
   .tt-input {
     display: grid !important;
     grid-template-columns: 1fr 1fr;
-    column-gap: 64px;
-    row-gap: 20px !important;
-    align-items: start;
-    padding: 32px 32px 4px !important;
+    grid-template-columns: 1fr 1.05fr;
+    grid-template-rows: 1fr 1fr;
+    column-gap: 72px;
+    row-gap: 0 !important;
+    align-items: center;
+    min-height: min(calc(100vh - 68px), 760px);
+    padding: 24px 32px 40px !important;
   }
-  .tt-hero { grid-column: 1; grid-row: 1 / span 2; position: sticky; top: 100px; align-self: start; }
-  .tt-inputgroup { grid-column: 2; grid-row: 1; }
-  .tt-disc { grid-column: 2; grid-row: 2; }
+  .tt-hero { grid-column: 1; grid-row: 1 / span 2; align-self: center; }
+  .tt-orb { zoom: 1.3; }
+  .tt-inputgroup { grid-column: 2; grid-row: 1; align-self: end; padding-bottom: 24px; }
+  .tt-disc { grid-column: 2; grid-row: 2; align-self: start; }
   .tt-result {
     display: grid !important;
     grid-template-columns: 1fr 1fr;
@@ -173,3 +177,4 @@
   .tt-result > :nth-child(1) { grid-column: 1 / -1; }
   .tt-result > :nth-child(4) { grid-column: 1 / -1; justify-self: center; min-width: 320px; }
 }
+
