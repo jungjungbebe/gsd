@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { clientIp, rateLimit } from '@/lib/rate-limit'
-import { MISSION_SETS } from '@/lib/missionSets'
+import { MISSION_SETS, getTodaySet } from '@/lib/missionSets'
 
 export const maxDuration = 30
 
@@ -49,8 +49,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: '사진을 읽을 수 없어요. 다시 찍어 주세요.' }, { status: 400 })
   }
   // 미션 설정은 서버에서 id로 찾는다 (서버 시간대와 사용자 시간대가 달라도 어긋나지 않게, 클라이언트가 오늘의 세트 id를 보낸다)
-  const set = MISSION_SETS.find((s) => s.id === body?.setId)
-  if (!set) return NextResponse.json({ error: '미션 정보를 찾을 수 없어요.' }, { status: 400 })
+  // 이전 버전 화면이 setId 없이 호출해도 동작하도록, 못 찾으면 서버 기준 오늘의 세트를 쓴다
+  const set = MISSION_SETS.find((s) => s.id === body?.setId) ?? getTodaySet()
   const h = set.hunt
 
   const apiKey = process.env.OPENAI_API_KEY
