@@ -150,7 +150,9 @@
 
 /* ── PC(1024px 이상) 톤체크 레이아웃: 좌우 2단 ── */
 @media (min-width: 1024px) {
-  .tt-main { min-height: 0 !important; max-width: none !important; padding-bottom: 60px !important; zoom: var(--ds, 1); }
+  .ds-zoom { zoom: var(--ds, 1); }
+  .ds-zoom main, .ds-zoom [class*="_page__"] { min-height: calc(100vh / var(--ds, 1)) !important; }
+  .tt-main { min-height: 0 !important; max-width: none !important; padding-bottom: 60px !important; }
   .tt-header { display: none !important; }
   .tt-input {
     display: grid !important;

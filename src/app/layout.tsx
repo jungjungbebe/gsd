@@ -40,8 +40,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="no-scrollbar" style={{ fontFamily: "'Pretendard Variable', 'DM Sans', -apple-system, sans-serif", color: 'var(--text-primary)' }}>
         <DesktopNav />
-        <PageTransition>{children}</PageTransition>
-        <SiteFooter />
+        <div className="ds-zoom">
+          <PageTransition>{children}</PageTransition>
+          <SiteFooter />
+        </div>
         <BottomNav />
         <AutoLogout />
         <Analytics />
