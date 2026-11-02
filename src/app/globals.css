@@ -150,7 +150,7 @@
 
 /* ── PC(1024px 이상) 톤체크 레이아웃: 좌우 2단 ── */
 @media (min-width: 1024px) {
-  .tt-main { max-width: 1180px !important; padding-bottom: 60px !important; }
+  .tt-main { max-width: none !important; padding-bottom: 60px !important; }
   .tt-header { display: none !important; }
   .tt-input {
     display: grid !important;
@@ -161,7 +161,7 @@
     row-gap: 0 !important;
     align-items: center;
     min-height: min(calc(100vh - 68px), 760px);
-    padding: 24px 32px 40px !important;
+    padding: 24px 56px 40px !important;
   }
   .tt-hero { grid-column: 1; grid-row: 1 / span 2; align-self: center; }
   .tt-orb { zoom: 1.3; }
@@ -172,7 +172,7 @@
     grid-template-columns: 1fr 1fr;
     gap: 20px !important;
     align-items: start;
-    padding: 24px 32px 0 !important;
+    padding: 24px 56px 0 !important;
   }
   .tt-result > :nth-child(1) { grid-column: 1 / -1; }
   .tt-result > :nth-child(4) { grid-column: 1 / -1; justify-self: center; min-width: 320px; }
