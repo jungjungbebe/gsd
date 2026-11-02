@@ -118,7 +118,10 @@ export default function MyPage() {
             {user ? (
               <Link href="/my/profile" className={styles.editBtn}>프로필 편집</Link>
             ) : (
-              <Link href="/signup" className={styles.editBtn}>가입하기</Link>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <Link href="/login" className={styles.editBtn}>로그인</Link>
+                <Link href="/signup" className={styles.editBtn}>가입하기</Link>
+              </div>
             )}
           </div>
 
