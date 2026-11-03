@@ -10,13 +10,10 @@ interface Term {
   meaning: string
 }
 
-interface ToneCheckAlternative {
-  id: string
-  label: string
-  reasoning: string
-  reply: string
+interface ReplyVariant {
+  text: string
   easy: string
-  replyTerms: Term[]
+  terms: Term[]
 }
 
 interface ToneCheckResult {
@@ -25,82 +22,81 @@ interface ToneCheckResult {
   tags: string[]
   todos: string[]
   terms: Term[]
-  response: { reasoning: string; reply: string; easy: string; replyTerms: Term[] }
-  alternatives: ToneCheckAlternative[]
+  reply: {
+    confirm: ReplyVariant
+    clarify: { available: boolean; missing: string; text: string; easy: string; terms: Term[] }
+    negotiate: { available: boolean }
+  }
   counterpart?: string
 }
 
-const SYSTEM_PROMPT = `당신은 문장을 단순 요약하거나 원문을 반복하는 답장 생성기가 아니다.
+const DECODE_RULES = `당신은 회사 메시지를 해독하고 실무 답장을 작성한다. 사용자는 아래 메시지를 "받은 사람"이며 보낸 사람에게 회신한다.
 낯선 회사어와 업계용어를 실제 행동으로 해독하고, 사용자가 실무 표현을 이해하면서 사용할 수 있도록 돕는다.
-사용자는 아래 메시지를 "받은 사람"이며, 보낸 사람에게 회신할 답장을 만든다.
 
-처리 순서:
+[해독 처리 순서]
 1. 먼저 문장을 문자 그대로 정확하게 해석한다.
-2. 발신자, 요청 행동, 결과물, 마감, 업무 순서를 추출한다.
+2. 발신자가 요청한 행동, 제출·공유해야 할 결과물, 마감 시점, 공유 대상, 판단 기준, 불명확한 정보를 파악한다.
 3. 문장 속 회사어와 업계용어를 일상적인 한국어로 설명한다.
 4. 사용자가 지금 해야 할 일을 순서대로 제시한다.
-5. 해당 업계에서 자연스럽게 쓰는 표현 1~3개를 활용해 답장을 작성한다.
-6. 답장에 사용한 낯선 실무 표현도 별도로 풀이한다.
 
-금지 사항:
+[공통 금지]
 - 원문의 명사를 그대로 나열하며 요약하지 않는다.
-- 입력문을 거의 그대로 복사해 답장하지 않는다.
 - 근거 없이 재촉, 불만, 압박, 지연 등의 감정을 추측하지 않는다.
 - 기안과 기한, 결재와 결제처럼 형태가 비슷한 단어를 혼동하지 않는다.
 - 사용자가 의미를 이해할 수 없는 전문용어를 설명 없이 추가하지 않는다.
-- 메시지에 없는 일정, 수량, 책임자를 임의로 만들어내지 않는다.
-- 답장에서 원문의 문장을 어미만 바꿔 그대로 되풀이하지 않는다. 요청받은 행동을 "내가 하겠다"는 약속과 다음 공유 시점(원문에 있는 기준만)으로 압축해 쓴다.
-- 상대가 지시·요청한 일에 대해 상대에게 의견이나 추가 요청을 되묻는 답장은 만들지 않는다(예: "추가 의견 있으시면 말씀해 주세요" 금지). 확인이 꼭 필요한 부분이 있을 때만 그 부분을 짧게 되묻는다.
-- 답장에 원문의 회사어(예: EOD, 컨펌)를 그대로 쓰면 그 표현도 replyTerms에 풀이한다.
+- 메시지에 없는 업무·산출물·일정·수량·책임자·공유 대상을 만들어내지 않는다.
+- 사용자가 약속하지 않은 행동을 새롭게 약속하지 않는다. 사용자에게 불리할 수 있는 확정적 표현을 임의로 만들지 않는다.
 
-필드 규칙:
-- easy: "쉽게 풀면". 원문을 반복하지 말고 일상적인 말로 완전히 번역한 1~2문장. 해요체가 아닌 "~라는 뜻입니다" 형태.
+[해독 필드]
+- easy: "쉽게 풀면". 원문을 반복하지 말고 일상적인 말로 완전히 번역한 1~2문장. "~라는 뜻입니다" 형태.
 - tags: 짧은 키워드 3개(예: 요청, 마감, 기안). 감정 추측 키워드 금지.
-- todos: "내가 해야 할 일". 업무를 순서·마감 기준으로 분리한 2~5개의 짧은 단계. 메시지에 없는 일정을 만들지 말 것.
-- terms: "문장 속 회사어". 원문에 실제로 나온 낯선 회사어·업계용어·한자어(0~6개). term은 원문에 나온 그대로의 글자(부분 문자열)여야 하며, meaning은 일상어 풀이 한 문장. 누구나 아는 단어는 넣지 않는다. 낯선 표현이 없으면 빈 배열.
-- response.reply: "회사어로 답장". 어떤 문장이 들어와도 아래 규칙을 똑같이 적용한다(아래 예시는 설명용일 뿐 특정 문장 전용이 아니다). 실제 직장인이 메신저·메일로 보낼 법한 자연스러운 합니다체 1~2문장. 과한 사과·감탄사·느낌표·이모지 금지.
-  [먼저 메시지 유형을 판단한다]
-  · 유형 A — 확인·진행·처리·전달 부탁 등 "내 선에서 해야 하는 일"을 시키는 메시지(질문이 아님): "받았다는 말 → 처리 약속 한 가지 → 공유 시점" 순서로 쓴다. 받았다는 말은 "네, 확인했습니다."처럼 짧게. 처리 약속은 내가 어떻게 하겠다는 것 하나만. 공유 시점은 원문에 있는 기준(오늘 중, EOD, 금주 등)만 쓰고, 없으면 "완료되는 대로 공유드리겠습니다"처럼 안전하게 쓴다.
-  · 유형 B — 나에게 의견·가능 여부·상태를 묻는 질문: 질문에 대한 답을 먼저 한 뒤, 필요한 조건이나 다음 행동을 한 가지만 덧붙인다. 모르는 사실은 지어내지 말고 "확인 후 회신드리겠습니다"로 쓴다.
-  [공통 규칙]
-  · 원문에 나온 단어·구절을 답장에 그대로 다시 쓰지 않는다. 원문과 겹치는 단어는 건 이름 같은 고유한 말 1~2개까지만 허용한다.
-  · 지시·요청을 받은 내용을 가리킬 때는 "해당 건", "말씀하신 내용", "두 건 모두", "관련 자료"처럼 대용어로 받거나 다른 말로 바꾼다.
-  · 답장에 쓰는 업계 표현 1~3개는 반드시 원문에 없던 말(사용자가 새로 배울 표현)로 고른다. 원문에 있던 회사어를 답장에 다시 쓰지 않는다. 도배하지 않는다.
-  · 사용자가 정하지 않은 약속(구체적 시간·수량)은 지어내지 않는다.
-- response.replyTerms: 답장에 사용한, 사용자가 모를 수 있는 실무 표현의 풀이(1~3개). 풀이는 그 표현을 모르는 신입도 이해할 정확하고 쉬운 정의로 쓴다. term은 reply에 그대로 들어 있는 글자여야 한다.
-- response.easy: 그 답장을 일상적인 말로 풀어 쓴 한 문장("쉬운 답장").
-- response.reasoning: 이 답장이 어떤 방식인지 한 문장.
-- alternatives: 서로 다른 대응 전략 정확히 3개. 지시·요청형 메시지라면 (1) 바로 수락하며 완료 시점 약속 (2) 진행 중간 공유를 덧붙임 (3) 범위·기준 중 모호한 한 가지만 확인 같은 방향으로 나눈다. 메시지에 없는 요청을 지어내지 않는다. 각각 id, label(짧은 명사구), reasoning(한 문장), reply, easy, replyTerms 포함.
+- todos: "내가 해야 할 일". 업무를 순서·마감 기준으로 분리한 2~5개의 짧은 단계.
+- terms: "문장 속 회사어". 원문에 실제로 나온 낯선 회사어·업계용어·한자어(0~6개). term은 원문에 나온 그대로의 글자여야 하며, meaning은 신입도 이해할 정확하고 쉬운 풀이 한 문장. 누구나 아는 단어는 넣지 않는다.
 
-반드시 아래 JSON만 출력한다.
-{"easy": string, "tags": [string,string,string], "todos": [string], "terms": [{"term": string, "meaning": string}], "response": {"reasoning": string, "reply": string, "easy": string, "replyTerms": [{"term": string, "meaning": string}]}, "alternatives": [{"id": string, "label": string, "reasoning": string, "reply": string, "easy": string, "replyTerms": [{"term": string, "meaning": string}]}]}
+[실무 답장 — reply]
+답장은 1문장, 최대 2문장. 합니다체. 과한 사과·감탄사·느낌표·이모지 금지. 실제 회사에서 자연스럽게 쓰는 표현을 쓴다. 원문의 핵심 업무용어는 실무에서 자연스러우면 그대로 써도 된다. 각 답장의 terms에는 답장에 쓰인 낯선 표현의 풀이(0~3개, term은 답장에 그대로 들어 있는 글자)를 쓴다. 각 답장의 easy는 같은 내용을 전문용어 없이 일상어로 쓴 "쉬운 답장" 한 문장.
 
-[예시 1] 받은 메시지: "클라이언트 피드백 반영해서 베리에이션 디벨롭 후 EOD까지 컨펌 요청 부탁드립니다."
-easy: "고객이 준 의견을 반영해 여러 가지 버전의 시안을 만들고, 오늘 업무가 끝나기 전까지 검토와 승인을 요청해 달라는 뜻입니다."
-todos: ["클라이언트 피드백 확인","피드백을 반영한 여러 시안 제작","오늘 퇴근 전 검토 요청"]
-terms: 클라이언트(업무를 의뢰한 고객사), 베리에이션(하나의 시안을 바탕으로 만든 여러 버전), 디벨롭(아이디어나 시안을 구체적으로 발전시키는 것), EOD(오늘 업무 종료 시점), 컨펌(검토 후 승인 또는 확정하는 것)
-reply: "네, 피드백 반영해 옵션별 시안을 디벨롭하고 금일 EOD 전 컨펌 요청드리겠습니다."
+1) reply.confirm — "확인하고 진행": 요청받은 행동, 결과물, 마감일을 간결하게 재구성해 실행 의사를 전달한다. 원문의 어순과 조사만 바꿔 반복하지 말고, 핵심만 압축한다. "네,"로 시작.
+2) reply.clarify — "모호한 점 질문": 업무 진행에 실제로 필요한 정보가 원문에 빠져 있을 때만 질문한다(예: 담당자 미정, 결과물 형식 없음, 판단 기준 없음, 공유 대상 없음, 마감 시점 모호). 한 번에 한 가지 핵심 정보만 묻는다. 억지 질문 금지. 불명확한 부분이 없으면 available=false, text/easy/missing은 빈 문자열, terms는 빈 배열. 있으면 available=true, missing에 "확인이 필요한 정보"를 짧게 쓴다.
+3) reply.negotiate — "일정 조율": 원문에 마감일·마감 시점이 있을 때만 available=true. 사용자의 가능 일정은 아직 모르므로 문장은 만들지 않는다(available만 반환).
 
-[예시 2] 받은 메시지: "해당 건 금일 중 기안 후 팀장님 재가를 받아 총무팀에 전달 바랍니다."
-easy: "오늘 안에 내부 승인 문서를 작성해 올리고, 팀장님의 승인을 받은 다음 총무팀에 전달하라는 뜻입니다."
-todos: ["기안 작성","팀장님 승인(결재) 받기","총무팀에 전달"]
-terms: 금일(오늘), 기안(업무를 진행하기 위해 승인 문서를 처음 작성하는 것), 재가(상급자가 검토하고 승인하는 것)
-reply: "네, 금일 중 기안 상신 후 팀장님 결재가 완료되는 대로 총무팀에 전달하겠습니다."
-replyTerms: 상신(작성한 문서를 상급자에게 올리는 것), 결재(책임자가 문서를 검토하고 승인하는 절차)
+[출력 JSON]
+{"easy": string, "tags": [string,string,string], "todos": [string], "terms": [{"term": string, "meaning": string}],
+ "reply": {
+  "confirm": {"text": string, "easy": string, "terms": [{"term": string, "meaning": string}]},
+  "clarify": {"available": boolean, "missing": string, "text": string, "easy": string, "terms": [{"term": string, "meaning": string}]},
+  "negotiate": {"available": boolean}
+ }}
 
-[예시 4] 받은 메시지: "선집행 건은 증빙 취합 후 소급 품의 부탁드리며, 세금계산서는 금월 마감 전에 발행 요청해 주세요."
-easy: "먼저 쓴 비용(또는 먼저 진행한 일)의 증빙 자료를 모아서 나중에라도 승인 문서를 올려 승인받고, 세금계산서는 이번 달이 끝나기 전에 발행해 달라고 거래처에 요청하라는 뜻입니다."
-todos: ["증빙 자료(영수증·계약서 등) 모으기","사후 승인 문서(소급 품의) 작성해 올리기","이번 달 마감 전 세금계산서 발행 요청"]
-terms: 선집행(승인을 받기 전에 먼저 비용을 쓰거나 일을 진행한 것), 증빙(지출이나 거래가 사실임을 보여주는 영수증·계약서 같은 자료), 취합(흩어진 자료를 한데 모으는 것), 소급 품의(이미 진행한 일에 대해 나중에 올리는 승인 요청 문서), 금월(이번 달)
-reply: "네, 확인했습니다. 관련 증빙 정리되는 대로 사후 품의 올리고, 세금계산서도 이번 달 안에 발행되도록 요청해 두겠습니다."
-replyTerms: 사후 품의(일을 진행한 뒤에 올리는 승인 요청 문서)
+[예시 1] 입력: "킥오프 미팅에서 정리된 액션 아이템별 오너와 듀데이트를 지정해 금일 중 공유 부탁드립니다."
+easy: "회의에서 정한 할 일마다 담당자와 마감일을 정해서, 오늘 안에 알려달라는 뜻입니다."
+todos: ["회의에서 정리된 할 일 목록 확인","항목별 담당자와 마감일 지정","오늘 안에 공유"]
+terms: 킥오프 미팅(프로젝트를 시작할 때 목표와 역할을 맞추는 첫 회의), 액션 아이템(회의 후 실행해야 할 개별 할 일), 오너(해당 업무의 담당자), 듀데이트(마감일), 금일(오늘)
+confirm: "네, 액션 아이템별 오너와 듀데이트를 정리해 금일 중 공유드리겠습니다." / easy: "네, 업무별 담당자와 마감일을 정리해 오늘 안에 공유드리겠습니다."
+clarify: available=true, missing="담당자가 확정되지 않은 항목의 처리", text: "오너가 확정되지 않은 항목은 미정으로 표기해 공유드려도 될까요?"
+negotiate: available=true (금일 중이라는 마감이 있음)
 
-[예시 3] 받은 메시지: "현재 재고 소진율 확인 후 리오더 여부 검토 부탁드립니다. 발주 시 리드타임도 함께 공유해 주세요."
-easy: "남은 재고와 판매 속도를 확인해서 추가 주문이 필요한지 판단하고, 주문한다면 상품이 들어오기까지 얼마나 걸리는지 알려달라는 뜻입니다."
-todos: ["현재 남아 있는 재고 확인","판매 속도를 기준으로 재고 소진 시점 예상","추가 주문 필요 여부와 수량 검토","주문 후 예상 입고일 확인","위 내용을 정리해 공유"]
-terms: 재고 소진율(확보한 재고 중 지금까지 판매되거나 사용된 비율), 리오더(이미 주문했던 상품을 추가로 주문하는 것), 발주(공급업체에 상품이나 자재를 공식적으로 주문하는 것), 리드타임(주문한 시점부터 실제 입고될 때까지 걸리는 기간)
-reply: "네, 현재고와 판매 추이를 기준으로 소진 예상 시점을 확인한 뒤 리오더 필요 수량을 검토하겠습니다. 발주 진행 시 예상 입고일도 함께 정리해 공유드리겠습니다."
-replyTerms: 현재고(지금 실제로 남아 있는 재고 수량), 판매 추이(일정 기간 동안 판매량이 어떻게 변하고 있는지), 예상 입고일(주문한 상품이 창고나 매장에 들어올 것으로 예상되는 날짜)`
+[예시 2] 입력: "금주 파이프라인 업데이트 시 각 리드의 전환 가능성과 예상 클로징 시점을 함께 기재해 주세요."
+easy: "이번 주 영업 현황을 갱신할 때 고객마다 계약으로 이어질 가능성과 계약이 끝날 것 같은 시점도 같이 적어달라는 뜻입니다."
+terms: 파이프라인(영업 진행 단계별 고객·거래 현황), 리드(영업 대상이 될 잠재 고객), 전환 가능성(계약 등 목표 행동으로 이어질 가능성), 클로징(계약을 확정하는 것)
+confirm: "네, 금주 파이프라인에 리드별 전환 가능성과 예상 클로징 시점을 반영해 업데이트하겠습니다."
+clarify: available=true, missing="전환 가능성의 판단 기준", text: "전환 가능성은 현재 파이프라인 단계와 최근 협의 내용을 기준으로 판단하면 될까요?"
+negotiate: available=true (금주라는 마감 있음)
+
+[예시 3] 입력: "소재별 CTR과 CVR 비교 후 저성과 소재는 오프하고, 효율이 확인된 어셋 중심으로 예산 리밸런싱 부탁드립니다."
+terms: CTR(광고가 노출된 횟수 대비 클릭된 비율), CVR(클릭한 사람 중 구매·가입 등으로 이어진 비율), 소재(광고에 쓰는 이미지·영상·문구), 오프(광고 노출을 끄는 것), 어셋(광고에 쓰는 소재 자원), 리밸런싱(성과에 맞춰 예산 배분을 다시 조정하는 것)
+confirm: "네, 소재별 CTR과 CVR을 확인해 저성과 소재는 오프하고 고효율 어셋 중심으로 예산을 리밸런싱하겠습니다."
+clarify: available=true, missing="저성과 판단 기준값", text: "저성과 소재를 판단하는 CTR과 CVR 기준값이 별도로 있을까요?"
+negotiate: available=false (마감 언급 없음)
+
+[예시 4] 입력: "선집행 건은 증빙 취합 후 소급 품의 부탁드리며, 세금계산서는 금월 마감 전에 발행 요청해 주세요."
+terms: 선집행(승인을 받기 전에 먼저 비용을 쓰거나 일을 진행한 것), 증빙(지출이나 거래가 사실임을 보여주는 영수증·계약서 같은 자료), 취합(흩어진 자료를 한데 모으는 것), 소급 품의(이미 진행한 일에 대해 나중에 올리는 승인 요청 문서), 금월(이번 달)`
+
+const NEGOTIATE_RULES = `당신은 회사 메시지에 대한 일정 조율 답장을 작성한다.
+사용자가 제공한 "가능한 일정"만 사용해 정중하게 대안 일정을 제안하는 1~2문장 합니다체 답장을 쓴다. 사용자가 제공하지 않은 시간·날짜·수량을 만들지 않는다. 원문 마감을 그대로 지키기 어렵다는 점을 부드럽게 전하고, "괜찮을까요?"처럼 상대의 동의를 구한다. 원문에 없던 업무나 약속을 추가하지 않는다.
+예: 원문 마감 "금일 중", 가능 일정 "내일 오전" → "요청해 주신 내용은 확인했습니다. 금일 중 완료는 어려워 내일 오전까지 정리해 공유드려도 괜찮을까요?"
+출력 JSON: {"text": string, "easy": string, "terms": [{"term": string, "meaning": string}]}
+easy는 같은 내용을 일상어로 쓴 한 문장, terms는 text에 쓰인 낯선 업무 표현의 풀이(0~2개, text에 그대로 들어 있는 글자).`
 
 function cleanTerms(raw: unknown, within: string[]): Term[] {
   if (!Array.isArray(raw)) return []
@@ -124,82 +120,103 @@ function strs(raw: unknown, max: number): string[] {
     : []
 }
 
+async function callOpenAI(system: string, user: string): Promise<any | null> {
+  const apiKey = process.env.OPENAI_API_KEY?.trim()
+  if (!apiKey || apiKey.startsWith('placeholder')) {
+    console.error('[tone-check] OPENAI_API_KEY is missing or placeholder')
+    return null
+  }
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: process.env.TONE_MODEL || 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      temperature: 0.2,
+    }),
+  })
+  if (!res.ok) {
+    console.error('[tone-check] OpenAI HTTP', res.status, (await res.text()).slice(0, 300))
+    return null
+  }
+  const data = await res.json()
+  const raw: string = data?.choices?.[0]?.message?.content ?? ''
+  return JSON.parse(raw.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/, ''))
+}
+
+const FAIL = { error: '해석을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.' }
+
 export async function POST(req: Request) {
   try {
     if (!rateLimit('tone:' + clientIp(req), 10)) {
       return NextResponse.json({ error: '요청이 너무 많아요. 잠시 후 다시 시도해 주세요.' }, { status: 429 })
     }
-    const { text, counterpart } = await req.json()
+    const body = await req.json()
+    const { text, counterpart } = body
     if (!text || typeof text !== 'string' || !text.trim()) {
       return NextResponse.json({ error: '메시지를 입력해 주세요.' }, { status: 400 })
     }
     if (text.length > MAX_TEXT) {
       return NextResponse.json({ error: `메시지는 ${MAX_TEXT}자 이내로 입력해 주세요.` }, { status: 400 })
     }
-    const counterpartLabel: string | undefined =
-      typeof counterpart === 'string' && ['동료', '상사', '클라이언트'].includes(counterpart) ? counterpart : undefined
 
-    const apiKey = process.env.OPENAI_API_KEY?.trim()
-    if (!apiKey || apiKey.startsWith('placeholder')) {
-      console.error('[tone-check] OPENAI_API_KEY is missing or placeholder')
-      return NextResponse.json({ error: '지금은 해석을 불러올 수 없어요. 잠시 후 다시 시도해 주세요.' }, { status: 503 })
+    // 일정 조율 답장: 사용자가 입력한 가능 일정으로만 생성
+    if (body.mode === 'negotiate') {
+      const schedule = typeof body.schedule === 'string' ? body.schedule.trim() : ''
+      if (!schedule || schedule.length > 40) {
+        return NextResponse.json({ error: '가능한 일정을 40자 이내로 입력해 주세요.' }, { status: 400 })
+      }
+      const parsed = await callOpenAI(NEGOTIATE_RULES, `받은 메시지: ${text}\n가능한 일정: ${schedule}`)
+      if (!parsed || typeof parsed.text !== 'string' || !parsed.text.trim()) {
+        return NextResponse.json(FAIL, { status: 502 })
+      }
+      return NextResponse.json({
+        text: parsed.text.trim(),
+        easy: String(parsed.easy ?? ''),
+        terms: cleanTerms(parsed.terms, [parsed.text]),
+      })
     }
 
+    const counterpartLabel: string | undefined =
+      typeof counterpart === 'string' && ['동료', '상사', '클라이언트'].includes(counterpart) ? counterpart : undefined
     const contextLine = counterpartLabel
       ? `\n참고: 이 메시지는 "${counterpartLabel}"가 보낸 메시지입니다. 관계를 고려해 답장 톤을 보정하세요.`
       : ''
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: process.env.TONE_MODEL || 'gpt-4o-mini',
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT + contextLine },
-          { role: 'user', content: text },
-        ],
-        temperature: 0.2,
-      }),
-    })
-    if (!res.ok) {
-      console.error('[tone-check] OpenAI HTTP', res.status, (await res.text()).slice(0, 300))
-      return NextResponse.json({ error: '해석을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.' }, { status: 502 })
+    const parsed = await callOpenAI(DECODE_RULES + contextLine, text)
+    if (!parsed) return NextResponse.json(FAIL, { status: 502 })
+    const confirm = parsed?.reply?.confirm
+    if (typeof parsed?.easy !== 'string' || typeof confirm?.text !== 'string' || !confirm.text.trim()) {
+      console.error('[tone-check] OpenAI response shape invalid', JSON.stringify(parsed).slice(0, 300))
+      return NextResponse.json(FAIL, { status: 502 })
     }
-    const data = await res.json()
-    const raw: string = data?.choices?.[0]?.message?.content ?? ''
-    const parsed = JSON.parse(raw.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/, ''))
-    if (
-      typeof parsed?.easy !== 'string' ||
-      typeof parsed?.response?.reply !== 'string' ||
-      !Array.isArray(parsed?.alternatives)
-    ) {
-      console.error('[tone-check] OpenAI response shape invalid', raw.slice(0, 300))
-      return NextResponse.json({ error: '해석을 불러오지 못했어요. 다시 시도해 주세요.' }, { status: 502 })
-    }
-
-    const mainReply: string = parsed.response.reply
+    const cl = parsed.reply.clarify ?? {}
+    const clarifyOk = cl.available === true && typeof cl.text === 'string' && cl.text.trim().length > 0
     const result: ToneCheckResult = {
       interpretation: parsed.easy,
       tags: strs(parsed.tags, 3),
       todos: strs(parsed.todos, 5),
       terms: cleanTerms(parsed.terms, [text]),
-      response: {
-        reasoning: String(parsed.response.reasoning ?? ''),
-        reply: mainReply,
-        easy: String(parsed.response.easy ?? ''),
-        replyTerms: cleanTerms(parsed.response.replyTerms, [mainReply]),
+      reply: {
+        confirm: {
+          text: confirm.text.trim(),
+          easy: String(confirm.easy ?? ''),
+          terms: cleanTerms(confirm.terms, [confirm.text]),
+        },
+        clarify: clarifyOk
+          ? {
+              available: true,
+              missing: String(cl.missing ?? ''),
+              text: cl.text.trim(),
+              easy: String(cl.easy ?? ''),
+              terms: cleanTerms(cl.terms, [cl.text]),
+            }
+          : { available: false, missing: '', text: '', easy: '', terms: [] },
+        negotiate: { available: parsed.reply.negotiate?.available === true },
       },
-      alternatives: parsed.alternatives.slice(0, 3).map((a: any, i: number) => {
-        const reply = String(a?.reply ?? '')
-        return {
-          id: String(a?.id ?? `alt${i}`),
-          label: String(a?.label ?? '다른 방향'),
-          reasoning: String(a?.reasoning ?? ''),
-          reply,
-          easy: String(a?.easy ?? ''),
-          replyTerms: cleanTerms(a?.replyTerms, [reply]),
-        }
-      }),
       counterpart: counterpartLabel,
     }
     return NextResponse.json(result)

@@ -15,13 +15,17 @@ interface Term {
   meaning: string
 }
 
-interface ToneCheckAlternative {
-  id: string
-  label: string
-  reasoning: string
-  reply: string
-  easy?: string
-  replyTerms?: Term[]
+interface ReplyVariant {
+  text: string
+  easy: string
+  terms: Term[]
+}
+
+type ReplyMode = 'confirm' | 'clarify' | 'negotiate'
+const MODE_LABEL: Record<ReplyMode, string> = {
+  confirm: '확인하고 진행',
+  clarify: '모호한 점 질문',
+  negotiate: '일정 조율',
 }
 
 interface ToneCheckResult {
@@ -29,8 +33,11 @@ interface ToneCheckResult {
   tags: string[]
   todos?: string[]
   terms?: Term[]
-  response: { reasoning: string; reply: string; easy?: string; replyTerms?: Term[] }
-  alternatives: ToneCheckAlternative[]
+  reply: {
+    confirm: ReplyVariant
+    clarify: { available: boolean; missing: string; text: string; easy: string; terms: Term[] }
+    negotiate: { available: boolean }
+  }
   counterpart?: string
 }
 
@@ -172,7 +179,11 @@ export default function ToneCheckFlow() {
   const [error, setError] = useState('')
   const [openTerm, setOpenTerm] = useState<string | null>(null)
   const [showEasy, setShowEasy] = useState(false)
-  const [selectedAltId, setSelectedAltId] = useState<string | null>(null)
+  const [replyMode, setReplyMode] = useState<ReplyMode>('confirm')
+  const [nego, setNego] = useState<ReplyVariant | null>(null)
+  const [negoInput, setNegoInput] = useState('')
+  const [negoLoading, setNegoLoading] = useState(false)
+  const [negoError, setNegoError] = useState('')
   const [counterpart, setCounterpart] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [likes, setLikes] = useState(0)
@@ -226,7 +237,7 @@ export default function ToneCheckFlow() {
       setError('')
       setResult(cached)
       setOpenTerm(null); setShowEasy(false)
-      setSelectedAltId(null)
+      setReplyMode('confirm'); setNego(null); setNegoInput(''); setNegoError('')
       setStage('result')
       if (opts?.recordPattern) {
         addPatternRecord({
@@ -254,7 +265,7 @@ export default function ToneCheckFlow() {
       resultCache.current.set(cacheKey, data)
       setResult(data)
       setOpenTerm(null); setShowEasy(false)
-      setSelectedAltId(null)
+      setReplyMode('confirm'); setNego(null); setNegoInput(''); setNegoError('')
       setStage('result')
       // 내 패턴 record: 새로운 상황을 "완료"했을 때만 기록 (같은 상황에 대한 상대방 재선택 refinement는 기록 안 함)
       if (opts?.recordPattern) {
@@ -296,16 +307,43 @@ export default function ToneCheckFlow() {
     runCheck(submittedText, next)
   }
 
-  const activeReasoning = selectedAltId
-    ? result?.alternatives.find((a) => a.id === selectedAltId)?.reasoning ?? result?.response.reasoning
-    : result?.response.reasoning
-  const activeReply = selectedAltId
-    ? result?.alternatives.find((a) => a.id === selectedAltId)?.reply ?? result?.response.reply
-    : result?.response.reply
+  const clarifyInfo = result?.reply.clarify
+  const activeVariant: ReplyVariant | null =
+    !result ? null
+    : replyMode === 'confirm' ? result.reply.confirm
+    : replyMode === 'clarify' ? (clarifyInfo?.available ? { text: clarifyInfo.text, easy: clarifyInfo.easy, terms: clarifyInfo.terms } : null)
+    : nego
+  const activeReply = activeVariant?.text ?? ''
+  const activeReplyTerms: Term[] = activeVariant?.terms ?? []
+  const activeEasy = activeVariant?.easy ?? ''
+  const activeLabel = MODE_LABEL[replyMode]
 
-  const activeAlt = selectedAltId ? result?.alternatives.find((a) => a.id === selectedAltId) : null
-  const activeReplyTerms: Term[] = (activeAlt ? activeAlt.replyTerms : result?.response.replyTerms) ?? []
-  const activeEasy = (activeAlt ? activeAlt.easy : result?.response.easy) ?? ''
+  async function handleNegotiate() {
+    const schedule = negoInput.trim()
+    if (!schedule || negoLoading) return
+    setNegoLoading(true)
+    setNegoError('')
+    try {
+      const res = await fetch('/api/tone-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'negotiate', text: submittedText, schedule }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setNegoError(data.error || '답장을 만들지 못했어요.')
+      } else {
+        setNego({ text: data.text, easy: data.easy ?? '', terms: data.terms ?? [] })
+        setOpenTerm(null)
+        setShowEasy(false)
+      }
+    } catch {
+      setNegoError('네트워크 오류가 발생했습니다.')
+    } finally {
+      setNegoLoading(false)
+    }
+  }
+
   // 답장 안에 실제로 들어간 회사어는 원문 풀이 + 답장 풀이를 합쳐서 모두 밑줄·풀이한다 (설명 없는 전문용어 방지)
   const allTerms: Term[] = [...(result?.terms ?? []), ...activeReplyTerms]
   const replyShownTerms: Term[] = (() => {
@@ -324,11 +362,10 @@ export default function ToneCheckFlow() {
     if (existing.length > 0) {
       existing.forEach((r) => removeScrapRecord(r.id))
     } else {
-      const alt = selectedAltId ? result?.alternatives.find((a) => a.id === selectedAltId) : null
       addScrapRecord({
         originalText: submittedText,
         situationCategory: result?.tags?.[0] || '기타 요청',
-        direction: alt?.label || '추천 대응',
+        direction: activeLabel,
         replyText: activeReply,
       })
     }
@@ -392,11 +429,10 @@ export default function ToneCheckFlow() {
 
   // MY PLAYBOOK 상세페이지에서 다시 볼 수 있도록 저장한 대응을 record로 함께 보관
   function savePlaybookRecord() {
-    const alt = selectedAltId ? result?.alternatives.find((a) => a.id === selectedAltId) : null
     addPlaybookRecord({
       originalText: submittedText,
       situationCategory: result?.tags?.[0] || '기타 요청',
-      direction: alt?.label || '추천 대응',
+      direction: activeLabel,
       replyText: activeReply || '',
     })
   }
@@ -408,7 +444,7 @@ export default function ToneCheckFlow() {
     setResult(null)
     setError('')
     setOpenTerm(null); setShowEasy(false)
-    setSelectedAltId(null)
+    setReplyMode('confirm'); setNego(null); setNegoInput(''); setNegoError('')
     setCounterpart(null)
     setCopied(false)
     setLikes(0)
@@ -886,19 +922,76 @@ export default function ToneCheckFlow() {
             <div className="glass-card-elevated p-4 flex flex-col gap-3">
               <span className="label-mono" style={{ color: 'var(--text-secondary)' }}>REPLY</span>
               <p className="font-bold text-[16px]" style={{ color: 'var(--text-primary)' }}>
-                회사어로 답장하기
+                실무 답장
               </p>
+
+              <div className="flex gap-1.5">
+                {(['confirm', 'clarify', ...(result.reply.negotiate.available ? ['negotiate'] : [])] as ReplyMode[]).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => {
+                      setReplyMode(m)
+                      setOpenTerm(null)
+                      setShowEasy(false)
+                    }}
+                    className="flex-1 text-[11.5px] font-semibold py-2"
+                    style={{
+                      borderRadius: 10,
+                      background: replyMode === m ? 'var(--text-primary)' : 'var(--bg-elevated)',
+                      color: replyMode === m ? '#fff' : 'var(--text-primary)',
+                      border: '1px solid var(--border-default)',
+                    }}
+                  >
+                    {MODE_LABEL[m]}
+                  </button>
+                ))}
+              </div>
 
               <div
                 className="p-3.5 flex flex-col gap-2.5"
                 style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 14 }}
               >
-                <span className="text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                  {activeReasoning}
-                </span>
-                <span className="text-[13.5px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-                  &ldquo;{activeReply ? renderTerms(activeReply, replyShownTerms, openTerm, tapTerm) : ''}&rdquo;
-                </span>
+                {replyMode === 'clarify' && clarifyInfo?.available && clarifyInfo.missing && (
+                  <span className="text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                    확인이 필요한 정보 · {clarifyInfo.missing}
+                  </span>
+                )}
+                {replyMode === 'clarify' && !clarifyInfo?.available && (
+                  <span className="text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                    추가로 확인할 내용이 명확하게 보이지 않습니다.
+                  </span>
+                )}
+                {replyMode === 'negotiate' && (
+                  <div className="flex flex-col gap-2">
+                    <span className="text-[12.5px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      언제까지 가능하신가요?
+                    </span>
+                    <div className="flex gap-1.5">
+                      <input
+                        value={negoInput}
+                        onChange={(e) => setNegoInput(e.target.value.slice(0, 40))}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleNegotiate() }}
+                        placeholder="예: 내일 오전"
+                        className="flex-1 text-[13px] px-3 py-2"
+                        style={{ borderRadius: 10, background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)', outline: 'none' }}
+                      />
+                      <button
+                        onClick={handleNegotiate}
+                        disabled={!negoInput.trim() || negoLoading}
+                        className="text-white text-[12px] font-bold px-3.5"
+                        style={{ background: 'var(--purple-500)', borderRadius: 10, opacity: !negoInput.trim() || negoLoading ? 0.5 : 1 }}
+                      >
+                        {negoLoading ? '작성 중…' : nego ? '다시 작성' : '답장 만들기'}
+                      </button>
+                    </div>
+                    {negoError && <span className="text-[11.5px]" style={{ color: '#c0392b' }}>{negoError}</span>}
+                  </div>
+                )}
+                {activeReply && (
+                  <span className="text-[13.5px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                    &ldquo;{renderTerms(activeReply, replyShownTerms, openTerm, tapTerm)}&rdquo;
+                  </span>
+                )}
                 {openMeaning && (
                   <div className="text-[12px] leading-relaxed px-3 py-2" style={{ background: 'rgba(201,137,31,0.14)', borderRadius: 10, color: 'var(--text-primary)' }}>
                     <b>{openMeaning.term}</b> · {openMeaning.meaning}
@@ -924,15 +1017,17 @@ export default function ToneCheckFlow() {
                 <div className="self-end flex gap-2">
                   <button
                     onClick={handleToggleScrap}
+                    disabled={!activeReply}
                     className="text-[12px] font-bold px-3.5 py-2"
-                    style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)', borderRadius: 10 }}
+                    style={{ opacity: activeReply ? 1 : 0.4, background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)', borderRadius: 10 }}
                   >
                     {scrapList.some((r) => r.replyText === activeReply) ? '★ 찜됨' : '☆ 찜하기'}
                   </button>
                   <button
                     onClick={handleCopy}
+                    disabled={!activeReply}
                     className="text-white text-[12px] font-bold px-3.5 py-2"
-                    style={{ background: 'var(--text-primary)', borderRadius: 10 }}
+                    style={{ opacity: activeReply ? 1 : 0.4, background: 'var(--text-primary)', borderRadius: 10 }}
                   >
                     {copied ? '복사됨 ✓' : '복사하기 ↗'}
                   </button>
@@ -967,34 +1062,6 @@ export default function ToneCheckFlow() {
                 </div>
               )}
 
-              <div className="flex flex-col gap-2">
-                <span className="text-[11.5px]" style={{ color: 'var(--text-secondary)' }}>
-                  다른 방향으로 답하고 싶다면
-                </span>
-                <div className="flex gap-1.5">
-                  {result.alternatives.map((alt) => (
-                    <button
-                      key={alt.id}
-                      onClick={() => {
-                        setSelectedAltId(alt.id === selectedAltId ? null : alt.id)
-                        setOpenTerm(null)
-                        setShowEasy(false)
-                      }}
-                      className="flex-1 text-[11.5px] font-semibold py-2"
-                      style={{
-                        borderRadius: 10,
-                        background: selectedAltId === alt.id ? 'var(--text-primary)' : 'var(--bg-elevated)',
-                        color: selectedAltId === alt.id ? '#fff' : 'var(--text-primary)',
-                        border: '1px solid var(--border-default)',
-                      }}
-                    >
-                      {alt.label}
-                      {selectedAltId === alt.id ? ' ✓' : ''}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                 <div className="flex items-center gap-1.5">
                   <button
@@ -1014,7 +1081,7 @@ export default function ToneCheckFlow() {
                 </div>
                 <button
                   onClick={handleSave}
-                  disabled={saving || saved}
+                  disabled={saving || saved || !activeReply}
                   className="text-[11px] font-semibold px-3 py-1.5"
                   style={{
                     borderRadius: 999,
