@@ -306,7 +306,15 @@ export default function ToneCheckFlow() {
   const activeAlt = selectedAltId ? result?.alternatives.find((a) => a.id === selectedAltId) : null
   const activeReplyTerms: Term[] = (activeAlt ? activeAlt.replyTerms : result?.response.replyTerms) ?? []
   const activeEasy = (activeAlt ? activeAlt.easy : result?.response.easy) ?? ''
+  // 답장 안에 실제로 들어간 회사어는 원문 풀이 + 답장 풀이를 합쳐서 모두 밑줄·풀이한다 (설명 없는 전문용어 방지)
   const allTerms: Term[] = [...(result?.terms ?? []), ...activeReplyTerms]
+  const replyShownTerms: Term[] = (() => {
+    const out: Term[] = []
+    for (const t of [...activeReplyTerms, ...(result?.terms ?? [])]) {
+      if (activeReply?.includes(t.term) && !out.some((o) => o.term === t.term)) out.push(t)
+    }
+    return out
+  })()
   const openMeaning = openTerm ? allTerms.find((t) => t.term === openTerm) : null
   const tapTerm = (t: string) => setOpenTerm((cur) => (cur === t ? null : t))
 
@@ -889,7 +897,7 @@ export default function ToneCheckFlow() {
                   {activeReasoning}
                 </span>
                 <span className="text-[13.5px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-                  &ldquo;{activeReply ? renderTerms(activeReply, activeReplyTerms, openTerm, tapTerm) : ''}&rdquo;
+                  &ldquo;{activeReply ? renderTerms(activeReply, replyShownTerms, openTerm, tapTerm) : ''}&rdquo;
                 </span>
                 {openMeaning && (
                   <div className="text-[12px] leading-relaxed px-3 py-2" style={{ background: 'rgba(201,137,31,0.14)', borderRadius: 10, color: 'var(--text-primary)' }}>
@@ -931,13 +939,13 @@ export default function ToneCheckFlow() {
                 </div>
               </div>
 
-              {activeReplyTerms.length > 0 && (
+              {replyShownTerms.length > 0 && (
                 <div>
                   <p className="font-bold text-[13px] mb-2" style={{ color: 'var(--text-primary)' }}>
                     답장에 쓰인 표현
                   </p>
                   <div className="flex flex-col" style={{ border: '1px solid var(--border-subtle)', borderRadius: 14, overflow: 'hidden', background: 'var(--bg-card)' }}>
-                    {activeReplyTerms.map((t, i) => (
+                    {replyShownTerms.map((t, i) => (
                       <button
                         key={t.term}
                         type="button"
