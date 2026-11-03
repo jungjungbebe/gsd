@@ -817,7 +817,7 @@ export default function ToneCheckFlow() {
         )}
 
         {stage === 'result' && result && (
-          <div className="tt-result px-5 flex flex-col gap-3">
+          <div className="tt-result result-page px-5 flex flex-col gap-3">
             {/* CHECK: 입력 메시지 접힌 상태 */}
             <div
               className="text-[11px] px-3 py-2 flex items-center justify-between gap-2"
