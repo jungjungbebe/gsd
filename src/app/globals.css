@@ -208,3 +208,10 @@ body {
     font-size: 16px !important;
   }
 }
+
+/* PC에서는 앱 설치 안내를 숨김 (안드로이드·iPhone 대상) */
+@media (min-width: 1024px) {
+  .pwa-install {
+    display: none !important;
+  }
+}

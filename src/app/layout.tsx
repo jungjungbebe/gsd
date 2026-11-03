@@ -6,6 +6,7 @@ import AutoLogout from '@/components/AutoLogout'
 import { Analytics } from '@vercel/analytics/next'
 import SiteFooter from '@/components/SiteFooter'
 import DesktopNav from '@/components/DesktopNav'
+import PwaInstall from '@/components/PwaInstall'
 export const metadata: Metadata = {
   metadataBase: new URL('https://gsd-mauve.vercel.app'),
   title: '투톤 — 비즈니스 한국어 톤 체크',
@@ -18,12 +19,16 @@ export const metadata: Metadata = {
     type: 'website',
   },
   twitter: { card: 'summary_large_image', title: '투톤 — 비즈니스 한국어 톤 체크' },
+  applicationName: '투톤',
+  appleWebApp: { capable: true, title: '투톤', statusBarStyle: 'default' },
+  icons: { icon: [{ url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }, { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' }], apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }] },
 }
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+  themeColor: '#a8a0b8',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -45,6 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SiteFooter />
         </div>
         <BottomNav />
+        <PwaInstall />
         <AutoLogout />
         <Analytics />
       </body>
