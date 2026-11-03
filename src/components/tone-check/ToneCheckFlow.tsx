@@ -21,11 +21,17 @@ interface ReplyVariant {
   terms: Term[]
 }
 
-type ReplyMode = 'confirm' | 'clarify' | 'negotiate'
-const MODE_LABEL: Record<ReplyMode, string> = {
-  confirm: '확인하고 진행',
-  clarify: '모호한 점 질문',
-  negotiate: '일정 조율',
+interface ReplyOption {
+  id: string
+  label: string
+  available: boolean
+  needsInput: boolean
+  inputPrompt: string
+  placeholder: string
+  note: string
+  text: string
+  easy: string
+  terms: Term[]
 }
 
 interface ToneCheckResult {
@@ -33,12 +39,14 @@ interface ToneCheckResult {
   tags: string[]
   todos?: string[]
   terms?: Term[]
-  reply: {
-    confirm: ReplyVariant
-    clarify: { available: boolean; missing: string; text: string; easy: string; terms: Term[] }
-    negotiate: { available: boolean }
-  }
+  messageType?: string
+  options: ReplyOption[]
   counterpart?: string
+}
+
+// 기본 선택: 바로 보낼 수 있는(추가 입력이 필요 없는) 첫 방향
+function defaultOption(options?: ReplyOption[]): string {
+  return (options?.find((o) => o.available && !o.needsInput) ?? options?.find((o) => o.available))?.id ?? ''
 }
 
 type Stage = 'input' | 'checking' | 'result'
@@ -179,9 +187,9 @@ export default function ToneCheckFlow() {
   const [error, setError] = useState('')
   const [openTerm, setOpenTerm] = useState<string | null>(null)
   const [showEasy, setShowEasy] = useState(false)
-  const [replyMode, setReplyMode] = useState<ReplyMode>('confirm')
-  const [nego, setNego] = useState<ReplyVariant | null>(null)
-  const [negoInput, setNegoInput] = useState('')
+  const [replyMode, setReplyMode] = useState<string>('')
+  const [generated, setGenerated] = useState<Record<string, ReplyVariant>>({})
+  const [infoInputs, setInfoInputs] = useState<Record<string, string>>({})
   const [negoLoading, setNegoLoading] = useState(false)
   const [negoError, setNegoError] = useState('')
   const [counterpart, setCounterpart] = useState<string | null>(null)
@@ -237,7 +245,8 @@ export default function ToneCheckFlow() {
       setError('')
       setResult(cached)
       setOpenTerm(null); setShowEasy(false)
-      setReplyMode('confirm'); setNego(null); setNegoInput(''); setNegoError('')
+      setGenerated({}); setInfoInputs({}); setNegoError('')
+      setReplyMode(defaultOption(cached.options))
       setStage('result')
       if (opts?.recordPattern) {
         addPatternRecord({
@@ -265,7 +274,8 @@ export default function ToneCheckFlow() {
       resultCache.current.set(cacheKey, data)
       setResult(data)
       setOpenTerm(null); setShowEasy(false)
-      setReplyMode('confirm'); setNego(null); setNegoInput(''); setNegoError('')
+      setGenerated({}); setInfoInputs({}); setNegoError('')
+      setReplyMode(defaultOption(data.options))
       setStage('result')
       // 내 패턴 record: 새로운 상황을 "완료"했을 때만 기록 (같은 상황에 대한 상대방 재선택 refinement는 기록 안 함)
       if (opts?.recordPattern) {
@@ -307,33 +317,36 @@ export default function ToneCheckFlow() {
     runCheck(submittedText, next)
   }
 
-  const clarifyInfo = result?.reply.clarify
-  const activeVariant: ReplyVariant | null =
-    !result ? null
-    : replyMode === 'confirm' ? result.reply.confirm
-    : replyMode === 'clarify' ? (clarifyInfo?.available ? { text: clarifyInfo.text, easy: clarifyInfo.easy, terms: clarifyInfo.terms } : null)
-    : nego
+  const activeOption = result?.options.find((o) => o.id === replyMode) ?? null
+  const activeVariant: ReplyVariant | null = !activeOption
+    ? null
+    : activeOption.needsInput
+      ? generated[activeOption.id] ?? null
+      : activeOption.available && activeOption.text
+        ? { text: activeOption.text, easy: activeOption.easy, terms: activeOption.terms }
+        : null
   const activeReply = activeVariant?.text ?? ''
   const activeReplyTerms: Term[] = activeVariant?.terms ?? []
   const activeEasy = activeVariant?.easy ?? ''
-  const activeLabel = MODE_LABEL[replyMode]
+  const activeLabel = activeOption?.label ?? '추천 대응'
 
-  async function handleNegotiate() {
-    const schedule = negoInput.trim()
-    if (!schedule || negoLoading) return
+  async function handleGenerate() {
+    if (!activeOption || !activeOption.needsInput) return
+    const info = (infoInputs[activeOption.id] ?? '').trim()
+    if (!info || negoLoading) return
     setNegoLoading(true)
     setNegoError('')
     try {
       const res = await fetch('/api/tone-check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'negotiate', text: submittedText, schedule }),
+        body: JSON.stringify({ mode: 'option', text: submittedText, messageType: result?.messageType, optionId: activeOption.id, info }),
       })
       const data = await res.json()
       if (!res.ok) {
         setNegoError(data.error || '답장을 만들지 못했어요.')
       } else {
-        setNego({ text: data.text, easy: data.easy ?? '', terms: data.terms ?? [] })
+        setGenerated((g) => ({ ...g, [activeOption.id]: { text: data.text, easy: data.easy ?? '', terms: data.terms ?? [] } }))
         setOpenTerm(null)
         setShowEasy(false)
       }
@@ -444,7 +457,7 @@ export default function ToneCheckFlow() {
     setResult(null)
     setError('')
     setOpenTerm(null); setShowEasy(false)
-    setReplyMode('confirm'); setNego(null); setNegoInput(''); setNegoError('')
+    setReplyMode(''); setGenerated({}); setInfoInputs({}); setNegoError('')
     setCounterpart(null)
     setCopied(false)
     setLikes(0)
@@ -922,27 +935,30 @@ export default function ToneCheckFlow() {
             <div className="glass-card-elevated p-4 flex flex-col gap-3">
               <span className="label-mono" style={{ color: 'var(--text-secondary)' }}>REPLY</span>
               <p className="font-bold text-[16px]" style={{ color: 'var(--text-primary)' }}>
-                실무 답장
+                이 상황에는 이렇게 대응할 수 있어요
               </p>
 
-              <div className="flex gap-1.5">
-                {(['confirm', 'clarify', ...(result.reply.negotiate.available ? ['negotiate'] : [])] as ReplyMode[]).map((m) => (
+              <div className="flex flex-wrap gap-1.5">
+                {result.options.map((o) => (
                   <button
-                    key={m}
+                    key={o.id}
                     onClick={() => {
-                      setReplyMode(m)
+                      setReplyMode(o.id)
                       setOpenTerm(null)
                       setShowEasy(false)
+                      setNegoError('')
                     }}
-                    className="flex-1 text-[11.5px] font-semibold py-2"
+                    className="flex-1 text-[11.5px] font-semibold py-2 px-2"
                     style={{
                       borderRadius: 10,
-                      background: replyMode === m ? 'var(--text-primary)' : 'var(--bg-elevated)',
-                      color: replyMode === m ? '#fff' : 'var(--text-primary)',
+                      minWidth: 90,
+                      background: replyMode === o.id ? 'var(--text-primary)' : 'var(--bg-elevated)',
+                      color: replyMode === o.id ? '#fff' : 'var(--text-primary)',
                       border: '1px solid var(--border-default)',
+                      opacity: o.available ? 1 : 0.6,
                     }}
                   >
-                    {MODE_LABEL[m]}
+                    {o.label}
                   </button>
                 ))}
               </div>
@@ -951,37 +967,32 @@ export default function ToneCheckFlow() {
                 className="p-3.5 flex flex-col gap-2.5"
                 style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 14 }}
               >
-                {replyMode === 'clarify' && clarifyInfo?.available && clarifyInfo.missing && (
-                  <span className="text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                    확인이 필요한 정보 · {clarifyInfo.missing}
-                  </span>
-                )}
-                {replyMode === 'clarify' && !clarifyInfo?.available && (
+                {activeOption && !activeOption.available && (
                   <span className="text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                    추가로 확인할 내용이 명확하게 보이지 않습니다.
+                    {activeOption.note}
                   </span>
                 )}
-                {replyMode === 'negotiate' && (
+                {activeOption && activeOption.needsInput && activeOption.available && (
                   <div className="flex flex-col gap-2">
                     <span className="text-[12.5px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-                      언제까지 가능하신가요?
+                      {activeOption.inputPrompt}
                     </span>
                     <div className="flex gap-1.5">
                       <input
-                        value={negoInput}
-                        onChange={(e) => setNegoInput(e.target.value.slice(0, 40))}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleNegotiate() }}
-                        placeholder="예: 내일 오전"
-                        className="flex-1 text-[13px] px-3 py-2"
+                        value={infoInputs[activeOption.id] ?? ''}
+                        onChange={(e) => setInfoInputs((m) => ({ ...m, [activeOption.id]: e.target.value.slice(0, 80) }))}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleGenerate() }}
+                        placeholder={activeOption.placeholder}
+                        className="flex-1 min-w-0 text-[13px] px-3 py-2"
                         style={{ borderRadius: 10, background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)', outline: 'none' }}
                       />
                       <button
-                        onClick={handleNegotiate}
-                        disabled={!negoInput.trim() || negoLoading}
-                        className="text-white text-[12px] font-bold px-3.5"
-                        style={{ background: 'var(--purple-500)', borderRadius: 10, opacity: !negoInput.trim() || negoLoading ? 0.5 : 1 }}
+                        onClick={handleGenerate}
+                        disabled={!(infoInputs[activeOption.id] ?? '').trim() || negoLoading}
+                        className="text-white text-[12px] font-bold px-3.5 shrink-0"
+                        style={{ background: 'var(--purple-500)', borderRadius: 10, opacity: !(infoInputs[activeOption.id] ?? '').trim() || negoLoading ? 0.5 : 1 }}
                       >
-                        {negoLoading ? '작성 중…' : nego ? '다시 작성' : '답장 만들기'}
+                        {negoLoading ? '작성 중…' : generated[activeOption.id] ? '다시 작성' : '답장 만들기'}
                       </button>
                     </div>
                     {negoError && <span className="text-[11.5px]" style={{ color: '#c0392b' }}>{negoError}</span>}
