@@ -10,21 +10,27 @@ import { UserAvatar } from '@/components/Avatar'
 
 const TranslatorOrb = dynamic(() => import('@/components/TranslatorOrb'), { ssr: false })
 
+interface Term {
+  term: string
+  meaning: string
+}
+
 interface ToneCheckAlternative {
   id: string
   label: string
   reasoning: string
   reply: string
+  easy?: string
+  replyTerms?: Term[]
 }
 
 interface ToneCheckResult {
   interpretation: string
   tags: string[]
-  evidenceCount: number
-  evidenceDistribution: { label: string; pct: number }[]
-  response: { reasoning: string; reply: string }
+  todos?: string[]
+  terms?: Term[]
+  response: { reasoning: string; reply: string; easy?: string; replyTerms?: Term[] }
   alternatives: ToneCheckAlternative[]
-  isSample: boolean
   counterpart?: string
 }
 
@@ -74,6 +80,38 @@ const TRAP_WORDS: { word: string; desc: string }[] = [
 
 function detectTraps(text: string) {
   return TRAP_WORDS.filter((t) => text.includes(t.word))
+}
+
+// 회사어에 밑줄을 긋고, 누르면 뜻이 열리게 한다
+function renderTerms(text: string, terms: Term[], open: string | null, onTap: (t: string) => void): React.ReactNode {
+  if (!terms.length) return text
+  const sorted = [...terms].sort((a, b) => b.term.length - a.term.length)
+  const re = new RegExp('(' + sorted.map((t) => t.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'g')
+  return text.split(re).map((part, i) => {
+    const hit = sorted.find((t) => t.term === part)
+    if (!hit) return part
+    const isOpen = open === hit.term
+    return (
+      <button
+        key={i}
+        type="button"
+        onClick={() => onTap(hit.term)}
+        style={{
+          font: 'inherit',
+          color: '#8a5a0a',
+          background: isOpen ? 'rgba(201,137,31,0.32)' : 'rgba(201,137,31,0.16)',
+          borderRadius: 4,
+          padding: '0 3px',
+          textDecoration: 'underline',
+          textDecorationColor: 'rgba(201,137,31,0.55)',
+          textUnderlineOffset: 3,
+          cursor: 'pointer',
+        }}
+      >
+        {part}
+      </button>
+    )
+  })
 }
 
 function highlightTraps(text: string): React.ReactNode {
@@ -132,7 +170,8 @@ export default function ToneCheckFlow() {
   const [submittedText, setSubmittedText] = useState('')
   const [result, setResult] = useState<ToneCheckResult | null>(null)
   const [error, setError] = useState('')
-  const [evidenceExpanded, setEvidenceExpanded] = useState(false)
+  const [openTerm, setOpenTerm] = useState<string | null>(null)
+  const [showEasy, setShowEasy] = useState(false)
   const [selectedAltId, setSelectedAltId] = useState<string | null>(null)
   const [counterpart, setCounterpart] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -186,7 +225,7 @@ export default function ToneCheckFlow() {
     if (cached) {
       setError('')
       setResult(cached)
-      setEvidenceExpanded(false)
+      setOpenTerm(null); setShowEasy(false)
       setSelectedAltId(null)
       setStage('result')
       if (opts?.recordPattern) {
@@ -212,9 +251,9 @@ export default function ToneCheckFlow() {
         setStage('input')
         return
       }
-      if (!data.isSample) resultCache.current.set(cacheKey, data)
+      resultCache.current.set(cacheKey, data)
       setResult(data)
-      setEvidenceExpanded(false)
+      setOpenTerm(null); setShowEasy(false)
       setSelectedAltId(null)
       setStage('result')
       // 내 패턴 record: 새로운 상황을 "완료"했을 때만 기록 (같은 상황에 대한 상대방 재선택 refinement는 기록 안 함)
@@ -263,6 +302,13 @@ export default function ToneCheckFlow() {
   const activeReply = selectedAltId
     ? result?.alternatives.find((a) => a.id === selectedAltId)?.reply ?? result?.response.reply
     : result?.response.reply
+
+  const activeAlt = selectedAltId ? result?.alternatives.find((a) => a.id === selectedAltId) : null
+  const activeReplyTerms: Term[] = (activeAlt ? activeAlt.replyTerms : result?.response.replyTerms) ?? []
+  const activeEasy = (activeAlt ? activeAlt.easy : result?.response.easy) ?? ''
+  const allTerms: Term[] = [...(result?.terms ?? []), ...activeReplyTerms]
+  const openMeaning = openTerm ? allTerms.find((t) => t.term === openTerm) : null
+  const tapTerm = (t: string) => setOpenTerm((cur) => (cur === t ? null : t))
 
   function handleToggleScrap() {
     if (!activeReply) return
@@ -353,7 +399,7 @@ export default function ToneCheckFlow() {
     setSubmittedText('')
     setResult(null)
     setError('')
-    setEvidenceExpanded(false)
+    setOpenTerm(null); setShowEasy(false)
     setSelectedAltId(null)
     setCounterpart(null)
     setCopied(false)
@@ -730,60 +776,77 @@ export default function ToneCheckFlow() {
               </button>
             </div>
 
-            {/* UNDERSTAND */}
-            <div className="glass-card-elevated p-4 flex flex-col gap-3">
-              <span className="label-mono" style={{ color: 'var(--text-secondary)' }}>UNDERSTAND</span>
+            {/* 한 줄 해독 + 해야 할 일 + 회사어 */}
+            <div className="glass-card-elevated p-4 flex flex-col gap-4">
+              <span className="label-mono" style={{ color: 'var(--text-secondary)' }}>DECODE</span>
               <div>
                 <p className="font-bold text-[16px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
-                  이렇게 읽힐 수 있어요
+                  쉽게 풀면
                 </p>
-                <p className="text-[13.5px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                <p className="text-[14px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
                   {result.interpretation}
                 </p>
+                {result.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2.5">
+                    {result.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-[10.5px] font-semibold px-2.5 py-1"
+                        style={{ background: 'var(--glass-purple)', color: 'var(--purple-500)', borderRadius: 999 }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div className="flex flex-wrap gap-1.5">
-                {result.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-[10.5px] font-semibold px-2.5 py-1"
-                    style={{ background: 'var(--glass-purple)', color: 'var(--purple-500)', borderRadius: 999 }}
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-
-              {result.evidenceDistribution.length > 0 && (
-                <button
-                  onClick={() => setEvidenceExpanded((v) => !v)}
-                  className="text-left text-[12px] font-semibold"
-                  style={{ color: 'var(--purple-500)' }}
-                >
-                  비슷한 실제 사례 {result.evidenceCount}건 · {evidenceExpanded ? '접기 ↑' : '자세히 보기 ↓'}
-                </button>
+              {result.todos && result.todos.length > 0 && (
+                <div>
+                  <p className="font-bold text-[14px] mb-2" style={{ color: 'var(--text-primary)' }}>
+                    내가 해야 할 일
+                  </p>
+                  <ol className="flex flex-col gap-1.5">
+                    {result.todos.map((t, i) => (
+                      <li key={i} className="flex gap-2.5 items-start text-[13px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                        <span
+                          className="shrink-0 flex items-center justify-center font-bold"
+                          style={{ width: 20, height: 20, borderRadius: 999, background: 'var(--glass-purple)', color: 'var(--purple-500)', fontSize: 11, marginTop: 1 }}
+                        >
+                          {i + 1}
+                        </span>
+                        <span>{t}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
               )}
 
-              {evidenceExpanded && result.evidenceDistribution.length > 0 && (
-                <div className="p-3 flex flex-col gap-2" style={{ background: 'var(--bg-card)', borderRadius: 14 }}>
-                  {result.evidenceDistribution.map((row) => (
-                    <div key={row.label} className="flex items-center gap-2">
-                      <span className="text-[10.5px] w-20 shrink-0" style={{ color: 'var(--text-secondary)' }}>
-                        {row.label}
-                      </span>
-                      <div className="flex-1 h-[7px] rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
-                        <div className="h-full" style={{ width: `${row.pct}%`, background: 'var(--purple-500)' }} />
-                      </div>
-                      <span className="text-[10.5px] font-bold w-8 text-right" style={{ color: 'var(--text-primary)' }}>
-                        {row.pct}%
-                      </span>
-                    </div>
-                  ))}
-                  {result.isSample && (
-                    <span className="text-[9.5px]" style={{ color: 'var(--text-muted)' }}>
-                      예시 데이터 · 실제 응답 데이터는 베타 테스트 후 반영될 예정입니다.
-                    </span>
-                  )}
+              {result.terms && result.terms.length > 0 && (
+                <div>
+                  <p className="font-bold text-[14px] mb-2" style={{ color: 'var(--text-primary)' }}>
+                    문장 속 회사어
+                  </p>
+                  <p className="text-[12.5px] leading-relaxed mb-2.5" style={{ color: 'var(--text-secondary)' }}>
+                    &ldquo;{renderTerms(submittedText, result.terms, openTerm, tapTerm)}&rdquo;
+                  </p>
+                  <div className="flex flex-col" style={{ border: '1px solid var(--border-subtle)', borderRadius: 14, overflow: 'hidden', background: 'var(--bg-card)' }}>
+                    {result.terms.map((t, i) => (
+                      <button
+                        key={t.term}
+                        type="button"
+                        onClick={() => tapTerm(t.term)}
+                        className="flex gap-3 text-left px-3 py-2.5"
+                        style={{
+                          borderTop: i ? '1px solid var(--border-subtle)' : 'none',
+                          background: openTerm === t.term ? 'rgba(201,137,31,0.12)' : 'transparent',
+                        }}
+                      >
+                        <span className="shrink-0 text-[12.5px] font-bold" style={{ width: '32%', color: 'var(--text-primary)' }}>{t.term}</span>
+                        <span className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{t.meaning}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -811,11 +874,11 @@ export default function ToneCheckFlow() {
               </div>
             </div>
 
-            {/* RESPOND */}
+            {/* 실무 말투로 답장 */}
             <div className="glass-card-elevated p-4 flex flex-col gap-3">
-              <span className="label-mono" style={{ color: 'var(--text-secondary)' }}>RESPOND</span>
+              <span className="label-mono" style={{ color: 'var(--text-secondary)' }}>REPLY</span>
               <p className="font-bold text-[16px]" style={{ color: 'var(--text-primary)' }}>
-                이렇게 대응해볼 수 있어요
+                회사어로 답장하기
               </p>
 
               <div
@@ -825,9 +888,31 @@ export default function ToneCheckFlow() {
                 <span className="text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
                   {activeReasoning}
                 </span>
-                <span className="text-[13px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-                  &ldquo;{activeReply}&rdquo;
+                <span className="text-[13.5px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                  &ldquo;{activeReply ? renderTerms(activeReply, activeReplyTerms, openTerm, tapTerm) : ''}&rdquo;
                 </span>
+                {openMeaning && (
+                  <div className="text-[12px] leading-relaxed px-3 py-2" style={{ background: 'rgba(201,137,31,0.14)', borderRadius: 10, color: 'var(--text-primary)' }}>
+                    <b>{openMeaning.term}</b> · {openMeaning.meaning}
+                  </div>
+                )}
+                {activeEasy && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setShowEasy((v) => !v)}
+                      className="text-[12px] font-semibold"
+                      style={{ color: 'var(--purple-500)' }}
+                    >
+                      쉬운 답장 보기 {showEasy ? '↑' : '↓'}
+                    </button>
+                    {showEasy && (
+                      <p className="text-[12.5px] leading-relaxed mt-1.5" style={{ color: 'var(--text-secondary)' }}>
+                        {activeEasy}
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div className="self-end flex gap-2">
                   <button
                     onClick={handleToggleScrap}
@@ -846,6 +931,34 @@ export default function ToneCheckFlow() {
                 </div>
               </div>
 
+              {activeReplyTerms.length > 0 && (
+                <div>
+                  <p className="font-bold text-[13px] mb-2" style={{ color: 'var(--text-primary)' }}>
+                    답장에 쓰인 표현
+                  </p>
+                  <div className="flex flex-col" style={{ border: '1px solid var(--border-subtle)', borderRadius: 14, overflow: 'hidden', background: 'var(--bg-card)' }}>
+                    {activeReplyTerms.map((t, i) => (
+                      <button
+                        key={t.term}
+                        type="button"
+                        onClick={() => tapTerm(t.term)}
+                        className="flex gap-3 text-left px-3 py-2.5"
+                        style={{
+                          borderTop: i ? '1px solid var(--border-subtle)' : 'none',
+                          background: openTerm === t.term ? 'rgba(201,137,31,0.12)' : 'transparent',
+                        }}
+                      >
+                        <span className="shrink-0 text-[12.5px] font-bold" style={{ width: '32%', color: 'var(--text-primary)' }}>{t.term}</span>
+                        <span className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{t.meaning}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                    뜻을 확인한 뒤에 보내세요.
+                  </p>
+                </div>
+              )}
+
               <div className="flex flex-col gap-2">
                 <span className="text-[11.5px]" style={{ color: 'var(--text-secondary)' }}>
                   다른 방향으로 답하고 싶다면
@@ -854,7 +967,11 @@ export default function ToneCheckFlow() {
                   {result.alternatives.map((alt) => (
                     <button
                       key={alt.id}
-                      onClick={() => setSelectedAltId(alt.id === selectedAltId ? null : alt.id)}
+                      onClick={() => {
+                        setSelectedAltId(alt.id === selectedAltId ? null : alt.id)
+                        setOpenTerm(null)
+                        setShowEasy(false)
+                      }}
                       className="flex-1 text-[11.5px] font-semibold py-2"
                       style={{
                         borderRadius: 10,
