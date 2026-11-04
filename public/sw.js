@@ -1,5 +1,5 @@
 /* 투톤 서비스 워커: 정적 자산 캐싱 + 오프라인 안내. API·인증 요청은 절대 가로채지 않는다. */
-const VERSION = 'tutone-v1'
+const VERSION = 'tutone-v2'
 const STATIC_CACHE = `${VERSION}-static`
 const PAGE_CACHE = `${VERSION}-pages`
 const OFFLINE_URL = '/offline.html'
