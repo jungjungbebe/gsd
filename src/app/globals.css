@@ -215,3 +215,33 @@ body {
     display: none !important;
   }
 }
+
+/* ── 시작 화면: 검은 배경 + 투톤 로고, 약 1.4초 뒤 사라짐 ── */
+#tt-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: ttSplashOut 0.35s ease 1.05s forwards;
+}
+#tt-splash img {
+  width: min(44vw, 200px);
+  height: auto;
+  filter: invert(1);
+  animation: ttLogoIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.tt-nosplash #tt-splash { display: none; }
+@keyframes ttLogoIn {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ttSplashOut {
+  to { opacity: 0; visibility: hidden; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #tt-splash img { animation: none; }
+}

@@ -33,8 +33,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
       <head>
+        <link rel="preload" href="/tutone-logo.svg" as="image" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
@@ -44,6 +45,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet" />
       </head>
       <body className="no-scrollbar" style={{ fontFamily: "'Pretendard Variable', 'DM Sans', -apple-system, sans-serif", color: 'var(--text-primary)' }}>
+        {/* 앱을 켤 때 1.4초 동안 보이는 시작 화면 (같은 세션에서는 한 번만) */}
+        <div id="tt-splash" aria-hidden="true"><img src="/tutone-logo.svg" alt="" /></div>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "try{if(sessionStorage.getItem('tt-splash')){document.documentElement.classList.add('tt-nosplash')}else{sessionStorage.setItem('tt-splash','1')}}catch(e){}",
+          }}
+        />
         <DesktopNav />
         <div className="ds-zoom">
           <PageTransition>{children}</PageTransition>
