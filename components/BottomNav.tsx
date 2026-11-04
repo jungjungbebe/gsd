@@ -46,31 +46,42 @@ export default function BottomNav() {
   // 랜딩/스플래시에서는 숨김
   if (pathname === '/' || pathname === '/home') return null
 
+  const isActive = (id: string, href: string) =>
+    id === 'home' ? pathname === '/tone-check' || pathname === '/service' : pathname.startsWith(href)
+  const byId = (id: string) => TABS.find((t) => t.id === id)!
+
+  const renderTab = (id: string, extra = '') => {
+    const tab = byId(id)
+    const active = isActive(tab.id, tab.href)
+    return (
+      <Link
+        key={tab.id}
+        href={tab.href}
+        aria-label={tab.label}
+        aria-current={active ? 'page' : undefined}
+        onClick={() => {
+          // 이미 홈(톤체크)에 있을 때 다시 누르면 처음 입력 화면으로 돌아감
+          if (tab.id === 'home' && pathname === '/tone-check') {
+            window.dispatchEvent(new Event('tutone:home'))
+          }
+        }}
+        className={`${styles.tab} ${extra} ${active ? styles.active : ''}`}
+      >
+        <span className={styles.icon}>{tab.icon}</span>
+        {tab.id !== 'home' && <span className={styles.label}>{tab.label}</span>}
+      </Link>
+    )
+  }
+
+  // 진단 · 미션은 왼쪽, 홈은 정중앙, MY는 오른쪽 넓은 영역
   return (
     <nav className={styles.nav}>
-      {TABS.map((tab) => {
-        // 홈 = TONE CHECK. 기존 /service 화면에서도 홈 탭이 켜져 있도록 함께 인식
-        const isActive = tab.id === 'home'
-          ? pathname === '/tone-check' || pathname === '/service'
-          : pathname.startsWith(tab.href)
-        return (
-          <Link
-            key={tab.id}
-            href={tab.href}
-            onClick={() => {
-              // 이미 홈(톤체크)에 있을 때 다시 누르면 처음 입력 화면으로 돌아감
-              if (tab.id === 'home' && pathname === '/tone-check') {
-                window.dispatchEvent(new Event('tutone:home'))
-              }
-            }}
-            className={`${styles.tab} ${isActive ? styles.active : ''}`}
-          >
-            <span className={styles.icon}>{tab.icon}</span>
-            <span className={styles.label}>{tab.label}</span>
-            {isActive && <span className={styles.dot} />}
-          </Link>
-        )
-      })}
+      <div className={styles.bar}>
+        {renderTab('diagnose')}
+        {renderTab('mission')}
+        {renderTab('home', styles.home)}
+        {renderTab('my', styles.wide)}
+      </div>
     </nav>
   )
 }
