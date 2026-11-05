@@ -625,13 +625,10 @@ export default function ToneCheckFlow() {
               </div>
 
               <div style={{ textAlign: 'center', marginTop: 14 }}>
-                <span className="label-mono" style={{ color: 'var(--purple-500)', fontSize: 11 }}>
-                  TONE CHECK
-                </span>
-                <p style={{ fontSize: 21, fontWeight: 500, letterSpacing: '-0.02em', color: 'var(--text-primary)', margin: '7px 0 8px' }}>
+                <p style={{ fontSize: 25, fontWeight: 700, letterSpacing: '-0.035em', lineHeight: 1.3, color: 'var(--text-primary)', margin: '0 0 8px' }}>
                   이 말, 어떻게 들릴까요?
                 </p>
-                <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+                <p style={{ fontSize: 14.5, color: 'var(--text-secondary)', lineHeight: 1.6, letterSpacing: '-0.01em' }}>
                   애매한 회사 메시지나 짧은 대화를 붙여넣어 보세요.
                   <br />
                   뜻부터 맥락, 지금 할 수 있는 대응까지 정리해드릴게요.
@@ -709,7 +706,7 @@ export default function ToneCheckFlow() {
                 {error && <p style={{ fontSize: 12.5, color: '#c94040' }}>{error}</p>}
               </div>
 
-              <p style={{ fontSize: 11, color: 'var(--text-secondary)', textAlign: 'center', marginTop: 9 }}>
+              <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', textAlign: 'center', marginTop: 10 }}>
                 이름·회사명·고객명 등 식별 정보는 지우고 입력해 주세요.
               </p>
             </div>
@@ -724,7 +721,7 @@ export default function ToneCheckFlow() {
               }}
             >
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>예시로 넣어볼까요?</span>
+                <span style={{ fontSize: 13.5, color: 'var(--text-secondary)' }}>예시로 넣어볼까요?</span>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, maxWidth: '100%' }}>
                   {EXAMPLES.map((ex) => (
                     <button
@@ -820,7 +817,7 @@ export default function ToneCheckFlow() {
           <div className="tt-result result-page px-5 flex flex-col gap-3">
             {/* CHECK: 입력 메시지 접힌 상태 */}
             <div
-              className="text-[11px] px-3 py-2 flex items-center justify-between gap-2"
+              className="text-[12.5px] px-3 py-2 flex items-center justify-between gap-2"
               style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 14, color: 'var(--text-secondary)' }}
             >
               <span className="truncate">&ldquo;{highlightTraps(submittedText)}&rdquo;</span>
@@ -835,12 +832,12 @@ export default function ToneCheckFlow() {
 
             {/* 한 줄 해독 + 해야 할 일 + 회사어 */}
             <div className="glass-card-elevated p-4 flex flex-col gap-4">
-              <span className="label-mono" style={{ color: 'var(--text-secondary)' }}>DECODE</span>
+              <span className="tt-eyebrow">받은 메시지 해석</span>
               <div>
-                <p className="font-bold text-[16px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                <p className="font-bold text-[18px] tracking-[-0.02em] mb-1.5" style={{ color: 'var(--text-primary)' }}>
                   쉽게 풀면
                 </p>
-                <p className="text-[14px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                <p className="text-[15px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
                   {result.interpretation}
                 </p>
                 {result.tags.length > 0 && (
@@ -848,7 +845,7 @@ export default function ToneCheckFlow() {
                     {result.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="text-[10.5px] font-semibold px-2.5 py-1"
+                        className="text-[12px] font-semibold px-2.5 py-1"
                         style={{ background: 'var(--glass-purple)', color: 'var(--purple-500)', borderRadius: 999 }}
                       >
                         {tag}
@@ -860,12 +857,12 @@ export default function ToneCheckFlow() {
 
               {result.todos && result.todos.length > 0 && (
                 <div>
-                  <p className="font-bold text-[14px] mb-2" style={{ color: 'var(--text-primary)' }}>
+                  <p className="font-bold text-[17px] tracking-[-0.02em] mb-2" style={{ color: 'var(--text-primary)' }}>
                     내가 해야 할 일
                   </p>
                   <ol className="flex flex-col gap-1.5">
                     {result.todos.map((t, i) => (
-                      <li key={i} className="flex gap-2.5 items-start text-[13px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                      <li key={i} className="flex gap-2.5 items-start text-[14.5px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
                         <span
                           className="shrink-0 flex items-center justify-center font-bold"
                           style={{ width: 20, height: 20, borderRadius: 999, background: 'var(--glass-purple)', color: 'var(--purple-500)', fontSize: 11, marginTop: 1 }}
@@ -881,10 +878,10 @@ export default function ToneCheckFlow() {
 
               {result.terms && result.terms.length > 0 && (
                 <div>
-                  <p className="font-bold text-[14px] mb-2" style={{ color: 'var(--text-primary)' }}>
+                  <p className="font-bold text-[17px] tracking-[-0.02em] mb-2" style={{ color: 'var(--text-primary)' }}>
                     문장 속 회사어
                   </p>
-                  <p className="text-[12.5px] leading-relaxed mb-2.5" style={{ color: 'var(--text-secondary)' }}>
+                  <p className="text-[14px] leading-relaxed mb-2.5" style={{ color: 'var(--text-secondary)' }}>
                     &ldquo;{renderTerms(submittedText, result.terms, openTerm, tapTerm)}&rdquo;
                   </p>
                   <div className="flex flex-col" style={{ border: '1px solid var(--border-subtle)', borderRadius: 14, overflow: 'hidden', background: 'var(--bg-card)' }}>
@@ -899,8 +896,8 @@ export default function ToneCheckFlow() {
                           background: openTerm === t.term ? 'rgba(201,137,31,0.12)' : 'transparent',
                         }}
                       >
-                        <span className="shrink-0 text-[12.5px] font-bold" style={{ width: '32%', color: 'var(--text-primary)' }}>{t.term}</span>
-                        <span className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{t.meaning}</span>
+                        <span className="shrink-0 text-[14px] font-bold" style={{ width: '32%', color: 'var(--text-primary)' }}>{t.term}</span>
+                        <span className="text-[14px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{t.meaning}</span>
                       </button>
                     ))}
                   </div>
@@ -908,7 +905,7 @@ export default function ToneCheckFlow() {
               )}
 
               <div className="flex flex-col gap-1.5">
-                <span className="text-[11.5px]" style={{ color: 'var(--text-secondary)' }}>
+                <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
                   맥락이 다르다면 · 보낸 사람 알려주기 (선택)
                 </span>
                 <div className="flex gap-1.5">
@@ -916,7 +913,7 @@ export default function ToneCheckFlow() {
                     <button
                       key={c}
                       onClick={() => handleCounterpartSelect(c)}
-                      className="flex-1 text-[11.5px] font-semibold py-1.5"
+                      className="flex-1 text-[13px] font-semibold py-1.5"
                       style={{
                         borderRadius: 10,
                         background: counterpart === c ? 'var(--purple-500)' : 'var(--bg-elevated)',
@@ -933,8 +930,8 @@ export default function ToneCheckFlow() {
 
             {/* 실무 말투로 답장 */}
             <div className="glass-card-elevated p-4 flex flex-col gap-3">
-              <span className="label-mono" style={{ color: 'var(--text-secondary)' }}>REPLY</span>
-              <p className="font-bold text-[16px]" style={{ color: 'var(--text-primary)' }}>
+              <span className="tt-eyebrow">답장</span>
+              <p className="font-bold text-[18px] tracking-[-0.02em]" style={{ color: 'var(--text-primary)' }}>
                 이 상황에는 이렇게 대응할 수 있어요
               </p>
 
@@ -948,7 +945,7 @@ export default function ToneCheckFlow() {
                       setShowEasy(false)
                       setNegoError('')
                     }}
-                    className="flex-1 text-[11.5px] font-semibold py-2 px-2"
+                    className="flex-1 text-[13px] font-semibold py-2 px-2"
                     style={{
                       borderRadius: 10,
                       minWidth: 90,
@@ -968,13 +965,13 @@ export default function ToneCheckFlow() {
                 style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 14 }}
               >
                 {activeOption && !activeOption.available && (
-                  <span className="text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                  <span className="text-[14.5px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
                     {activeOption.note}
                   </span>
                 )}
                 {activeOption && activeOption.needsInput && activeOption.available && (
                   <div className="flex flex-col gap-2">
-                    <span className="text-[12.5px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    <span className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
                       {activeOption.inputPrompt}
                     </span>
                     <div className="flex gap-1.5">
@@ -983,28 +980,28 @@ export default function ToneCheckFlow() {
                         onChange={(e) => setInfoInputs((m) => ({ ...m, [activeOption.id]: e.target.value.slice(0, 80) }))}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleGenerate() }}
                         placeholder={activeOption.placeholder}
-                        className="flex-1 min-w-0 text-[13px] px-3 py-2"
+                        className="flex-1 min-w-0 text-[14.5px] px-3 py-2"
                         style={{ borderRadius: 10, background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)', outline: 'none' }}
                       />
                       <button
                         onClick={handleGenerate}
                         disabled={!(infoInputs[activeOption.id] ?? '').trim() || negoLoading}
-                        className="text-white text-[12px] font-bold px-3.5 shrink-0"
+                        className="text-white text-[13px] font-bold px-3.5 shrink-0"
                         style={{ background: 'var(--purple-500)', borderRadius: 10, opacity: !(infoInputs[activeOption.id] ?? '').trim() || negoLoading ? 0.5 : 1 }}
                       >
                         {negoLoading ? '작성 중…' : generated[activeOption.id] ? '다시 작성' : '답장 만들기'}
                       </button>
                     </div>
-                    {negoError && <span className="text-[11.5px]" style={{ color: '#c0392b' }}>{negoError}</span>}
+                    {negoError && <span className="text-[13px]" style={{ color: '#c0392b' }}>{negoError}</span>}
                   </div>
                 )}
                 {activeReply && (
-                  <span className="text-[13.5px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                  <span className="text-[15px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
                     &ldquo;{renderTerms(activeReply, replyShownTerms, openTerm, tapTerm)}&rdquo;
                   </span>
                 )}
                 {openMeaning && (
-                  <div className="text-[12px] leading-relaxed px-3 py-2" style={{ background: 'rgba(201,137,31,0.14)', borderRadius: 10, color: 'var(--text-primary)' }}>
+                  <div className="text-[13px] leading-relaxed px-3 py-2" style={{ background: 'rgba(201,137,31,0.14)', borderRadius: 10, color: 'var(--text-primary)' }}>
                     <b>{openMeaning.term}</b> · {openMeaning.meaning}
                   </div>
                 )}
@@ -1013,13 +1010,13 @@ export default function ToneCheckFlow() {
                     <button
                       type="button"
                       onClick={() => setShowEasy((v) => !v)}
-                      className="text-[12px] font-semibold"
+                      className="text-[13px] font-semibold"
                       style={{ color: 'var(--purple-500)' }}
                     >
                       쉬운 답장 보기 {showEasy ? '↑' : '↓'}
                     </button>
                     {showEasy && (
-                      <p className="text-[12.5px] leading-relaxed mt-1.5" style={{ color: 'var(--text-secondary)' }}>
+                      <p className="text-[14px] leading-relaxed mt-1.5" style={{ color: 'var(--text-secondary)' }}>
                         {activeEasy}
                       </p>
                     )}
@@ -1029,7 +1026,7 @@ export default function ToneCheckFlow() {
                   <button
                     onClick={handleToggleScrap}
                     disabled={!activeReply}
-                    className="text-[12px] font-bold px-3.5 py-2"
+                    className="text-[13px] font-bold px-3.5 py-2"
                     style={{ opacity: activeReply ? 1 : 0.4, background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)', borderRadius: 10 }}
                   >
                     {scrapList.some((r) => r.replyText === activeReply) ? '★ 찜됨' : '☆ 찜하기'}
@@ -1037,7 +1034,7 @@ export default function ToneCheckFlow() {
                   <button
                     onClick={handleCopy}
                     disabled={!activeReply}
-                    className="text-white text-[12px] font-bold px-3.5 py-2"
+                    className="text-white text-[13px] font-bold px-3.5 py-2"
                     style={{ opacity: activeReply ? 1 : 0.4, background: 'var(--text-primary)', borderRadius: 10 }}
                   >
                     {copied ? '복사됨 ✓' : '복사하기 ↗'}
@@ -1047,7 +1044,7 @@ export default function ToneCheckFlow() {
 
               {replyShownTerms.length > 0 && (
                 <div>
-                  <p className="font-bold text-[13px] mb-2" style={{ color: 'var(--text-primary)' }}>
+                  <p className="font-bold text-[14.5px] mb-2" style={{ color: 'var(--text-primary)' }}>
                     답장에 쓰인 표현
                   </p>
                   <div className="flex flex-col" style={{ border: '1px solid var(--border-subtle)', borderRadius: 14, overflow: 'hidden', background: 'var(--bg-card)' }}>
@@ -1062,12 +1059,12 @@ export default function ToneCheckFlow() {
                           background: openTerm === t.term ? 'rgba(201,137,31,0.12)' : 'transparent',
                         }}
                       >
-                        <span className="shrink-0 text-[12.5px] font-bold" style={{ width: '32%', color: 'var(--text-primary)' }}>{t.term}</span>
-                        <span className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{t.meaning}</span>
+                        <span className="shrink-0 text-[14px] font-bold" style={{ width: '32%', color: 'var(--text-primary)' }}>{t.term}</span>
+                        <span className="text-[14px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{t.meaning}</span>
                       </button>
                     ))}
                   </div>
-                  <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                  <p className="text-[12.5px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
                     뜻을 확인한 뒤에 보내세요.
                   </p>
                 </div>
@@ -1077,23 +1074,23 @@ export default function ToneCheckFlow() {
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => handleVote('like')}
-                    className="text-[13px] px-2 py-1"
+                    className="text-[14.5px] px-2 py-1"
                     style={{ opacity: myVote === 'like' ? 1 : 0.55 }}
                   >
-                    👍{likes > 0 && <span className="text-[10px] ml-1">{likes}</span>}
+                    👍{likes > 0 && <span className="text-[11.5px] ml-1">{likes}</span>}
                   </button>
                   <button
                     onClick={() => handleVote('dislike')}
-                    className="text-[13px] px-2 py-1"
+                    className="text-[14.5px] px-2 py-1"
                     style={{ opacity: myVote === 'dislike' ? 1 : 0.55 }}
                   >
-                    👎{dislikes > 0 && <span className="text-[10px] ml-1">{dislikes}</span>}
+                    👎{dislikes > 0 && <span className="text-[11.5px] ml-1">{dislikes}</span>}
                   </button>
                 </div>
                 <button
                   onClick={handleSave}
                   disabled={saving || saved || !activeReply}
-                  className="text-[11px] font-semibold px-3 py-1.5"
+                  className="text-[12.5px] font-semibold px-3 py-1.5"
                   style={{
                     borderRadius: 999,
                     border: '1px solid var(--border-default)',
@@ -1107,7 +1104,7 @@ export default function ToneCheckFlow() {
 
             <button
               onClick={handleReset}
-              className="text-center text-[12px] py-1"
+              className="text-center text-[13px] py-1"
               style={{ color: 'var(--text-secondary)' }}
             >
               새로운 메시지 확인하기

@@ -245,3 +245,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   #tt-splash img { animation: none; }
 }
+
+/* ── 타이포 정리: 한국어 줄바꿈은 단어 단위, 본문 자간 살짝 좁게 ── */
+body { word-break: keep-all; overflow-wrap: break-word; letter-spacing: -0.011em; }
+.tt-eyebrow { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; color: var(--purple-500); }

@@ -78,9 +78,9 @@
 }
 
 .label {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 /* 선택된 메뉴: 유리를 조금 더 밝게 */
@@ -96,7 +96,7 @@
   gap: 6px;
 }
 .wide .label {
-  font-size: 11px;
+  font-size: 13px;
 }
 
 /* 홈: 테두리·그라데이션 없는 단색 원 */
