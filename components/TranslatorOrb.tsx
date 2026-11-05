@@ -283,7 +283,10 @@ export default function TranslatorOrb({ isActive = false, size: orbSize = 180 }:
         glowMesh.rotation.copy(mesh.rotation)
 
         renderer.render(scene, camera)
+        // 첫 프레임을 그린 뒤 시작 화면에 알림 (셰이더 준비가 시작 화면 뒤에서 끝나도록)
+        if (!orbReadySent) { orbReadySent = true; window.dispatchEvent(new Event('tt-orb-ready')) }
       }
+      let orbReadySent = false
       animate()
     }
 
