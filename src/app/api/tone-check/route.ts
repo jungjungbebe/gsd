@@ -46,7 +46,7 @@ const TYPES: Record<string, { desc: string; options: OptDef[] }> = {
   action_request: {
     desc: '업무 수행 요청',
     options: [
-      { id: 'proceed', label: '진행 확인', guide: '요청받은 행동·결과물·마감을 간결히 재구성해 실행 의사를 전한다. 원문의 어순과 조사만 바꿔 반복하지 않는다.' },
+      { id: 'proceed', label: '진행 확인', guide: '받았다는 표시 → 처리 약속 한 가지 → 공유 시점 순서로 쓴다. 요청 내용은 "말씀하신 내용", "해당 건"처럼 받아서 쓰고 원문 문장을 되풀이하지 않는다.' },
       { id: 'clarify', label: '정보 확인', guide: '업무 진행에 꼭 필요한데 원문에 빠진 정보(담당자·형식·기준·공유 대상·마감 모호)가 있을 때만 한 가지를 질문한다. 없으면 available=false.' },
       { id: 'schedule', label: '일정 조율', guide: '원문에 마감이 있을 때만 available=true. 문장은 사용자가 가능한 일정을 입력한 뒤 만들므로 text는 비운다.', input: { prompt: '언제까지 가능하신가요?', placeholder: '예: 내일 오전' } },
     ],
@@ -129,7 +129,7 @@ const decodeRules = () => `당신은 회사 메시지를 해독하고 실무 답
 - easy: "쉽게 풀면". 원문을 반복하지 말고 일상적인 말로 완전히 번역한 1~2문장. "~라는 뜻입니다" 형태.
 - tags: 짧은 키워드 3개(예: 요청, 마감, 기안). 감정 추측 키워드 금지.
 - todos: "내가 해야 할 일". 업무를 순서·마감 기준으로 분리한 2~5개의 짧은 단계.
-- terms: "문장 속 회사어". 원문에 실제로 나온 낯선 회사어·업계용어·한자어(0~6개). term은 원문에 나온 그대로의 글자여야 하며, meaning은 신입도 이해할 정확하고 쉬운 풀이 한 문장. 누구나 아는 단어는 넣지 않는다.
+- terms: "문장 속 회사어". 원문에 실제로 나온 낯선 회사어·업계용어·한자어(0~6개). 붙어 있어도 단어 단위로 나눈다(예: '베리에이션 디벨롭' → '베리에이션', '디벨롭'). term은 원문에 나온 그대로의 글자여야 하며, meaning은 신입도 이해할 정확하고 쉬운 풀이 한 문장. 누구나 아는 단어는 넣지 않는다.
 
 [1단계: 메시지 유형 분류 — message_type]
 답장을 쓰기 전에 입력 메시지의 주된 목적을 먼저 분류한다. 문장 형태가 아니라 실제 의도를 기준으로 한다. 물음표가 없어도 답변을 요구하면 question 또는 status_check일 수 있다. 여러 의도가 섞이면 가장 중요한 하나로 분류한다.
@@ -138,7 +138,11 @@ ${TYPE_TABLE}
 
 [2단계: 대응 방향별 답장 — options]
 선택한 유형의 대응 방향 각각에 대해 reply_options 항목을 만든다. 각 항목의 id는 위 표의 id를 그대로 쓴다.
-공통: 답장은 1문장, 최대 2문장. 합니다체. 과한 사과·감탄사·느낌표·이모지 금지. 실제 회사에서 자연스럽게 쓰는 표현. 원문의 핵심 업무용어는 자연스러우면 그대로 써도 된다.
+공통: 답장은 1문장, 최대 2문장. 합니다체. 과한 사과·감탄사·느낌표·이모지 금지. 실제 회사 메신저에서 자연스럽게 쓰는 말투.
+[답장 문장 규칙 — 모든 입력에 적용]
+1. 원문과 겹치는 단어는 꼭 필요한 핵심어 1~2개까지만 쓴다. 원문이 지시한 내용은 "말씀하신 내용", "해당 건", "요청하신 부분", "두 건 모두"처럼 받아서 쓴다. 원문을 어순만 바꿔 되풀이하면 실패다.
+2. 원문이 묻는 말이 아니라 내가 처리해야 하는 요청이면 "받았다는 표시 → 처리 약속 한 가지 → 공유 시점" 순서로 쓴다.
+3. 답장에 업계 표현을 쓸 때는 원문에 없던 표현을 고르고, 어색한 직역(예: 디벨롭 → 변형 작업)을 만들지 않는다.
 핵심 원칙: 답을 모르는 질문에 그럴듯한 사실·수치·상품명·일정을 지어내지 않는다. 사용자만 아는 정보가 필요한 방향은 text를 빈 문자열로 둔다(available=true). 원문에 근거가 없어 억지로 만들어야 하는 질문·방향은 available=false로 하고 note에 이유를 한 줄로 쓴다(예: "추가로 확인할 내용이 명확하게 보이지 않습니다.").
 - text: 답장 본문. easy: 같은 내용을 전문용어 없이 쓴 "쉬운 답장" 한 문장. terms: text에 쓰인 낯선 표현의 풀이(0~3개, term은 text에 그대로 들어 있는 글자). text가 비어 있으면 easy와 terms도 비운다.
 
@@ -152,7 +156,7 @@ easy: "회의에서 정한 할 일마다 담당자와 마감일을 정해서, �
 todos: ["회의에서 정리된 할 일 목록 확인","항목별 담당자와 마감일 지정","오늘 안에 공유"]
 terms: 킥오프 미팅(프로젝트를 시작할 때 목표와 역할을 맞추는 첫 회의), 액션 아이템(회의 후 실행해야 할 개별 할 일), 오너(해당 업무의 담당자), 듀데이트(마감일), 금일(오늘)
 message_type: action_request
-proceed: "네, 액션 아이템별 오너와 듀데이트를 정리해 금일 중 공유드리겠습니다." / easy: "네, 업무별 담당자와 마감일을 정리해 오늘 안에 공유드리겠습니다."
+proceed: "네, 확인했습니다. 항목별 담당자랑 일정 정리해서 오늘 중으로 전달드리겠습니다." / easy: "네, 확인했어요. 일마다 담당자와 마감일을 정해서 오늘 안에 보내드릴게요."
 clarify: available=true, "오너가 확정되지 않은 항목은 미정으로 표기해 공유드려도 될까요?"
 schedule: available=true(금일 중이라는 마감이 있음), text 빈 문자열
 
@@ -167,15 +171,20 @@ criteria: available=true, "재고 커버리지는 기존과 동일하게 4주 �
 [예시 3] 입력: "소재별 CTR과 CVR 비교 후 저성과 소재는 오프하고, 효율이 확인된 어셋 중심으로 예산 리밸런싱 부탁드립니다."
 terms: CTR(광고가 노출된 횟수 대비 클릭된 비율), CVR(클릭한 사람 중 구매·가입 등으로 이어진 비율), 소재(광고에 쓰는 이미지·영상·문구), 오프(광고 노출을 끄는 것), 어셋(광고에 쓰는 소재 자원), 리밸런싱(성과에 맞춰 예산 배분을 다시 조정하는 것)
 message_type: action_request
-proceed: "네, 소재별 CTR과 CVR을 확인해 저성과 소재는 오프하고 고효율 어셋 중심으로 예산을 리밸런싱하겠습니다."
+proceed: "네, 확인했습니다. 성과 낮은 소재는 정리하고 효율 좋은 쪽으로 예산 다시 배분해서 반영해 두겠습니다."
 clarify: available=true, "저성과 소재를 판단하는 CTR과 CVR 기준값이 별도로 있을까요?"
 schedule: available=false, note "원문에 마감이 없어 일정 조율이 필요해 보이지 않습니다."
+
+[예시 5] 입력: "클라이언트 피드백 반영해서 베리에이션 디벨롭 후 EOD까지 컨펌 요청 부탁드립니다."
+terms: 클라이언트(일을 맡긴 고객사), 베리에이션(하나의 안을 바탕으로 만든 여러 버전), 디벨롭(시안을 더 다듬어 발전시키는 것), EOD(오늘 업무가 끝나는 시점), 컨펌(검토 후 확정·승인하는 것)
+proceed: "네, 확인했습니다. 말씀하신 내용 반영해서 시안 몇 가지로 정리한 뒤 오늘 퇴근 전까지 확인 요청드리겠습니다."
 
 [예시 4] 입력: "선집행 건은 증빙 취합 후 소급 품의 부탁드리며, 세금계산서는 금월 마감 전에 발행 요청해 주세요."
 terms: 선집행(승인을 받기 전에 먼저 비용을 쓰거나 일을 진행한 것), 증빙(지출이나 거래가 사실임을 보여주는 영수증·계약서 같은 자료), 취합(흩어진 자료를 한데 모으는 것), 소급 품의(이미 진행한 일에 대해 나중에 올리는 승인 요청 문서), 금월(이번 달)`
 
 const INPUT_RULES = `당신은 회사 메시지에 대한 답장을 작성한다.
 사용자가 제공한 "사용자 입력 정보"만 근거로, 지정된 대응 방향의 1~2문장 합니다체 답장을 쓴다. 사용자가 제공하지 않은 사실·시간·날짜·수량·상품명을 만들지 않는다. 원문에 없던 업무나 약속을 추가하지 않는다. 과한 사과·감탄사·느낌표·이모지 금지.
+원문과 겹치는 단어는 핵심어 1~2개까지만 쓰고, 원문이 지시한 내용은 "말씀하신 내용", "해당 건"처럼 받아서 쓴다. 원문을 되풀이하지 않는다.
 예: 원문 마감 "금일 중", 방향 "일정 조율", 입력 "내일 오전" → "요청해 주신 내용은 확인했습니다. 금일 중 완료는 어려워 내일 오전까지 정리해 공유드려도 괜찮을까요?"
 출력 JSON: {"text": string, "easy": string, "terms": [{"term": string, "meaning": string}]}
 easy는 같은 내용을 일상어로 쓴 한 문장, terms는 text에 쓰인 낯선 업무 표현의 풀이(0~2개, text에 그대로 들어 있는 글자).`
@@ -234,6 +243,33 @@ async function callOpenAI(system: string, user: string): Promise<any | null> {
   return JSON.parse(raw.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/, ''))
 }
 
+// 원문에서 그대로 가져온 단어 (조사·어미를 떼고 비교). 답장이 원문을 되풀이하는지 판단한다
+const STOP = new Set(['부탁드립니다', '부탁', '드립니다', '주세요', '요청', '확인', '진행', '공유', '오늘', '금일', '해당'])
+function stemsOf(s: string): string[] {
+  const out = new Set<string>()
+  for (const tok of s.match(/[가-힣A-Za-z0-9]+/g) ?? []) {
+    let w = tok.replace(/(으로|에서|까지|부터|에게|해서|하여|하고|이랑|랑|을|를|이|가|은|는|에|의|와|과|도|만|로|후)$/, '')
+    w = w.replace(/(합니다|했습니다|하겠습니다|해주세요|드립니다|했|하|해)$/, '')
+    if (w.length >= 2 && !STOP.has(w)) out.add(w.toLowerCase())
+  }
+  return Array.from(out)
+}
+function repeated(original: string, reply: string): string[] {
+  const r = reply.toLowerCase()
+  return stemsOf(original).filter((w) => r.includes(w))
+}
+
+const REWRITE_RULES = `당신은 회사 메신저 답장을 다듬는다. 각 답장 초안이 받은 메시지의 단어를 너무 많이 되풀이한다.
+규칙: 원문과 겹치는 단어는 꼭 필요한 핵심어 1~2개만 남긴다. 원문이 지시한 내용은 "말씀하신 내용", "해당 건", "요청하신 부분"처럼 받아서 쓴다. 내가 처리할 요청이면 "받았다는 표시 → 처리 약속 한 가지 → 공유 시점" 순서. 뜻·약속·일정은 바꾸지 않고, 없는 사실을 더하지 않는다. 합니다체 1~2문장. 어색한 직역 금지.
+출력 JSON: {"options": [{"id": string, "text": string, "easy": string}]}`
+
+function pickText(parsed: any): string {
+  if (!parsed || typeof parsed !== 'object') return ''
+  for (const k of ['text', 'reply', 'answer', 'message', '답장']) if (typeof parsed[k] === 'string' && parsed[k].trim()) return parsed[k].trim()
+  const first = Object.values(parsed).find((v) => typeof v === 'string' && (v as string).trim().length > 5)
+  return typeof first === 'string' ? first.trim() : ''
+}
+
 const FAIL = { error: '해석을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.' }
 
 export async function POST(req: Request) {
@@ -259,17 +295,27 @@ export async function POST(req: Request) {
       if (!info || info.length > 80) {
         return NextResponse.json({ error: '내용을 80자 이내로 입력해 주세요.' }, { status: 400 })
       }
-      const parsed = await callOpenAI(
-        INPUT_RULES,
-        `받은 메시지: ${text}\n대응 방향: ${def.label} (${def.guide})\n사용자 입력 정보: ${info}`,
-      )
-      if (!parsed || typeof parsed.text !== 'string' || !parsed.text.trim()) {
-        return NextResponse.json(FAIL, { status: 502 })
+      const prompt = `받은 메시지: ${text}\n대응 방향: ${def.label} (${def.guide})\n사용자 입력 정보: ${info}`
+      let parsed: any = null
+      let reply = ''
+      // 형식이 어긋나거나 일시 오류면 한 번 더 시도
+      for (let attempt = 0; attempt < 2 && !reply; attempt++) {
+        try {
+          parsed = await callOpenAI(INPUT_RULES, prompt)
+        } catch (e) {
+          console.error('[tone-check] option parse failed', e)
+          parsed = null
+        }
+        reply = pickText(parsed)
+      }
+      if (!reply) {
+        console.error('[tone-check] option empty', JSON.stringify(parsed).slice(0, 300))
+        return NextResponse.json({ error: '답장을 만들지 못했어요. 다시 한 번 눌러 주세요.' }, { status: 502 })
       }
       return NextResponse.json({
-        text: parsed.text.trim(),
-        easy: String(parsed.easy ?? ''),
-        terms: cleanTerms(parsed.terms, [parsed.text]),
+        text: reply,
+        easy: String(parsed?.easy ?? ''),
+        terms: cleanTerms(parsed?.terms, [reply]),
       })
     }
 
@@ -307,6 +353,27 @@ export async function POST(req: Request) {
     })
     if (!options.some((o) => o.available)) {
       return NextResponse.json(FAIL, { status: 502 })
+    }
+    // 답장이 원문 단어를 3개 이상 되풀이하면 한 번 다듬는다
+    const heavy = options.filter((o) => o.text && repeated(text, o.text).length > 2)
+    if (heavy.length > 0) {
+      try {
+        const fixed = await callOpenAI(
+          REWRITE_RULES,
+          `받은 메시지: ${text}\n` + heavy.map((o) => `- id=${o.id} (${o.label}) 초안: ${o.text}\n  되풀이된 단어: ${repeated(text, o.text).join(', ')}`).join('\n'),
+        )
+        for (const f of Array.isArray(fixed?.options) ? fixed.options : []) {
+          const o = options.find((x) => x.id === f?.id)
+          const t = typeof f?.text === 'string' ? f.text.trim() : ''
+          if (o && t && repeated(text, t).length < repeated(text, o.text).length) {
+            o.text = t
+            if (typeof f.easy === 'string' && f.easy.trim()) o.easy = f.easy.trim()
+            o.terms = cleanTerms(o.terms, [t])
+          }
+        }
+      } catch (e) {
+        console.error('[tone-check] rewrite failed', e)
+      }
     }
     const result: ToneCheckResult = {
       interpretation: parsed.easy,
