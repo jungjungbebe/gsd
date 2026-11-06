@@ -14,7 +14,9 @@ function isStandalone(): boolean {
   try {
     return (
       window.matchMedia('(display-mode: standalone)').matches ||
-      (navigator as unknown as { standalone?: boolean }).standalone === true
+      (navigator as unknown as { standalone?: boolean }).standalone === true ||
+      // iOS 앱(Capacitor 셸) 안에서는 설치 안내를 띄우지 않는다
+      /TutoneApp/.test(navigator.userAgent)
     )
   } catch {
     return false
