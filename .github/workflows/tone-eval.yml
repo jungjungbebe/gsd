@@ -1,0 +1,17 @@
+name: 톤체크 자동 점검
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: '점검할 사이트 주소'
+        default: 'https://gsd-mauve.vercel.app'
+        required: true
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node scripts/tone-eval.mjs "${{ github.event.inputs.base_url }}"

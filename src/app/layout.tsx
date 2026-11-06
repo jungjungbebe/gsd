@@ -31,11 +31,21 @@ export const viewport: Viewport = {
   themeColor: '#a8a0b8',
 }
 
+// 최소 1초 보여주고, 페이지 로드(톤체크는 구 첫 프레임까지) 끝난 뒤 한 프레임 쉬고 사라진다. 최대 3초.
+const SPLASH_SCRIPT = `(function(){var d=document.documentElement;try{if(sessionStorage.getItem('tt-splash')){d.classList.add('tt-nosplash');return}sessionStorage.setItem('tt-splash','1')}catch(e){}
+var t0=Date.now(),gone=false;function hide(){if(gone)return;gone=true;requestAnimationFrame(function(){requestAnimationFrame(function(){d.classList.add('tt-splash-out')})})}
+function ready(){var wait=Math.max(0,1000-(Date.now()-t0));setTimeout(hide,wait)}
+var loaded=false,orb=location.pathname.indexOf('/tone-check')!==0;function check(){if(loaded&&orb)ready()}
+window.addEventListener('tt-orb-ready',function(){orb=true;check()});
+function onLoad(){loaded=true;check();setTimeout(function(){orb=true;check()},900)}
+if(document.readyState==='complete')onLoad();else window.addEventListener('load',onLoad);
+setTimeout(hide,3000)})()`
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" suppressHydrationWarning>
       <head>
-        <link rel="preload" href="/tutone-logo.svg" as="image" />
+        <link rel="preload" href="/tutone-logo-white.svg" as="image" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
@@ -45,11 +55,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet" />
       </head>
       <body className="no-scrollbar" style={{ fontFamily: "'Pretendard Variable', 'DM Sans', -apple-system, sans-serif", color: 'var(--text-primary)' }}>
-        {/* 앱을 켤 때 1.4초 동안 보이는 시작 화면 (같은 세션에서는 한 번만) */}
-        <div id="tt-splash" aria-hidden="true"><img src="/tutone-logo.svg" alt="" /></div>
+        {/* 앱을 켤 때 보이는 시작 화면 (같은 세션에서는 한 번만). 화면 준비가 끝난 뒤 사라진다 */}
+        <div id="tt-splash" aria-hidden="true"><img src="/tutone-logo-white.svg" alt="" /></div>
         <script
           dangerouslySetInnerHTML={{
-            __html: "try{if(sessionStorage.getItem('tt-splash')){document.documentElement.classList.add('tt-nosplash')}else{sessionStorage.setItem('tt-splash','1')}}catch(e){}",
+            __html: SPLASH_SCRIPT,
           }}
         />
         <DesktopNav />
