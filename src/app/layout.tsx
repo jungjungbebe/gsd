@@ -6,6 +6,7 @@ import AutoLogout from '@/components/AutoLogout'
 import { Analytics } from '@vercel/analytics/next'
 import SiteFooter from '@/components/SiteFooter'
 import DesktopNav from '@/components/DesktopNav'
+import AiConsentModal from '@/components/AiConsentModal'
 import PwaInstall from '@/components/PwaInstall'
 export const metadata: Metadata = {
   metadataBase: new URL('https://gsd-mauve.vercel.app'),
@@ -69,6 +70,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </div>
         <BottomNav />
         <PwaInstall />
+        <AiConsentModal />
         <AutoLogout />
         <Analytics />
       </body>

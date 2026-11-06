@@ -1,5 +1,6 @@
 'use client'
 
+import { requestAiConsent } from '@/lib/aiConsent'
 import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
@@ -257,6 +258,8 @@ export default function ToneCheckFlow() {
       }
       return
     }
+    // 처음 AI로 보내기 전에 전송 동의를 받는다
+    if (!(await requestAiConsent())) return
     setStage('checking')
     setError('')
     try {

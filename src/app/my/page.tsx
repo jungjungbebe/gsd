@@ -308,6 +308,11 @@ export default function MyPage() {
           </div>
         )}
       </div>
+      <div style={{ textAlign: 'center', margin: '28px 0 8px' }}>
+        <Link href="/account/delete" style={{ fontSize: 13, color: 'var(--text-secondary)', textDecoration: 'underline' }}>
+          계정 삭제
+        </Link>
+      </div>
     </div>
   )
 }
