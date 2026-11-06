@@ -10,6 +10,11 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.85.0",
+    "@capacitor/core": "^7.6.10",
+    "@capacitor/ios": "^7.6.10",
+    "@capacitor/keyboard": "^7.0.6",
+    "@capacitor/splash-screen": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6",
     "@google/generative-ai": "^0.24.1",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.4",
@@ -25,6 +30,7 @@
     "three": "^0.183.2"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.6.10",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
