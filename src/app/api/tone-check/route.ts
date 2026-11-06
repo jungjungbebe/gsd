@@ -146,8 +146,19 @@ ${TYPE_TABLE}
 핵심 원칙: 답을 모르는 질문에 그럴듯한 사실·수치·상품명·일정을 지어내지 않는다. 사용자만 아는 정보가 필요한 방향은 text를 빈 문자열로 둔다(available=true). 원문에 근거가 없어 억지로 만들어야 하는 질문·방향은 available=false로 하고 note에 이유를 한 줄로 쓴다(예: "추가로 확인할 내용이 명확하게 보이지 않습니다.").
 - text: 답장 본문. easy: 같은 내용을 전문용어 없이 쓴 "쉬운 답장" 한 문장. terms: text에 쓰인 낯선 표현의 풀이(0~3개, term은 text에 그대로 들어 있는 글자). text가 비어 있으면 easy와 terms도 비운다.
 
+[0단계: 상황 파악 — situation] 다른 필드를 쓰기 전에 먼저 채운다. 아래 모든 필드는 이 분석에서 나와야 한다.
+- sender: 보낸 사람이 누구로 보이는지(모르면 "불명")
+- intent: 보낸 사람이 실제로 원하는 것 한 줄
+- action: 받은 사람(사용자)이 해야 할 행동. 없으면 ""
+- deliverable: 넘겨야 할 결과물. 없으면 ""
+- deadline: 원문에 나온 기한 표현 그대로(예: "EOD", "금일 중", "목요일 3시"). 없으면 ""
+- unclear: 원문만으로는 알 수 없는 것(기준·담당·형식 등) 0~3개
+- user_only: 답장에 필요하지만 사용자만 아는 정보 0~3개
+짧은 말·구어체·오타·여러 요청이 섞인 메시지도 같은 방식으로 분석한다. 원문에 없는 내용을 채우지 않는다.
+
 [출력 JSON]
-{"easy": string, "tags": [string,string,string], "todos": [string], "terms": [{"term": string, "meaning": string}],
+{"situation": {"sender": string, "intent": string, "action": string, "deliverable": string, "deadline": string, "unclear": [string], "user_only": [string]},
+ "easy": string, "tags": [string,string,string], "todos": [string], "terms": [{"term": string, "meaning": string}],
  "message_type": string,
  "reply_options": [{"id": string, "available": boolean, "note": string, "text": string, "easy": string, "terms": [{"term": string, "meaning": string}]}]}
 
@@ -265,9 +276,42 @@ function repeated(original: string, reply: string): string[] {
   return stemsOf(original).filter((w) => r.includes(w))
 }
 
-const REWRITE_RULES = `당신은 회사 메신저 답장을 다듬는다. 각 답장 초안이 받은 메시지의 단어를 너무 많이 되풀이한다.
+const REWRITE_RULES = `당신은 회사 메신저 답장을 다듬는다. 각 답장 초안의 "고칠 점"만 고친다.
 규칙: 원문과 겹치는 단어는 꼭 필요한 핵심어 1~2개만 남긴다. 원문이 지시한 내용은 "말씀하신 내용", "해당 건", "요청하신 부분"처럼 받아서 쓴다. 내가 처리할 요청이면 "받았다는 표시 → 처리 약속 한 가지 → 공유 시점" 순서. 뜻·약속·일정은 바꾸지 않고, 없는 사실을 더하지 않는다. 합니다체 1~2문장. 어색한 직역 금지.
 출력 JSON: {"options": [{"id": string, "text": string, "easy": string}]}`
+
+// 답장 자동 검사 (모델과 무관하게 코드로 판단)
+const TIME_GROUPS: string[][] = [
+  ['오늘', '금일', 'eod', '퇴근', '당일'],
+  ['내일', '익일', '명일'],
+  ['모레'],
+  ['이번 주', '금주'],
+  ['다음 주', '차주', '다음주'],
+  ['월요일'], ['화요일'], ['수요일'], ['목요일'], ['금요일'], ['주말'],
+  ['오전'], ['오후'], ['이번 달', '금월'], ['다음 달', '익월'],
+]
+const TIME_WORDS = /(오늘|금일|eod|퇴근|당일|내일|익일|모레|이번 ?주|금주|다음 ?주|차주|요일|주말|오전|오후|금월|익월|까지|중으로|시까지|\d+ ?시|\d+ ?일)/i
+function checkReply(original: string, reply: string, opt: { needsTime?: boolean; info?: string } = {}): string[] {
+  const issues: string[] = []
+  const src = (original + ' ' + (opt.info ?? '')).toLowerCase()
+  const r = reply.toLowerCase()
+  const rep = repeated(original, reply)
+  if (rep.length > 2) issues.push(`원문 단어 되풀이(${rep.join(', ')}) → 핵심어 1~2개만 남기고 "말씀하신 내용"처럼 받아 쓰기`)
+  for (const g of TIME_GROUPS) {
+    if (g.some((w) => r.includes(w)) && !g.some((w) => src.includes(w))) {
+      issues.push(`원문에 없는 시점(${g.find((w) => r.includes(w))})을 만들어 냄 → 빼거나 원문 기한으로 바꾸기`)
+      break
+    }
+  }
+  const nums = (reply.match(/\d+/g) ?? []).filter((n) => !src.includes(n))
+  if (nums.length) issues.push(`원문에 없는 숫자(${nums.join(', ')}) → 빼기`)
+  if (opt.needsTime && !TIME_WORDS.test(reply)) issues.push('원문 기한이 있는데 공유 시점이 빠짐 → 원문 기한에 맞춰 넣기')
+  if (reply.length < 15) issues.push('너무 짧음 → 받았다는 표시와 핵심 문장 두 부분으로')
+  if (reply.length > 130) issues.push('너무 김 → 1~2문장으로')
+  if ((reply.match(/[.?]\s/g) ?? []).length >= 2) issues.push('문장이 3개 이상 → 2문장 이내로')
+  if (/[!！]|[\u2600-\u27BF]|[\uD83C-\uDBFF][\uDC00-\uDFFF]/.test(reply)) issues.push('느낌표·이모지 → 빼기')
+  return issues
+}
 
 function pickText(parsed: any): string {
   if (!parsed || typeof parsed !== 'object') return ''
@@ -320,6 +364,23 @@ export async function POST(req: Request) {
         console.error('[tone-check] option empty', JSON.stringify(parsed).slice(0, 300))
         return NextResponse.json({ error: '답장을 만들지 못했어요. 다시 한 번 눌러 주세요.' }, { status: 502 })
       }
+      // 입력형 답장도 같은 기준으로 검사하고, 문제가 있으면 한 번 고쳐 쓴다
+      const issues = checkReply(text, reply, { info })
+      if (issues.length > 0) {
+        try {
+          const fixed = await callOpenAI(
+            REWRITE_RULES,
+            `받은 메시지: ${text}\n사용자 입력 정보: ${info}\n- id=${def.id} (${def.label}) 초안: ${reply}\n  고칠 점: ${issues.join(' / ')}`,
+          )
+          const t = Array.isArray(fixed?.options) && typeof fixed.options[0]?.text === 'string' ? fixed.options[0].text.trim() : ''
+          if (t && checkReply(text, t, { info }).length < issues.length) {
+            reply = t
+            if (typeof fixed.options[0]?.easy === 'string' && fixed.options[0].easy.trim()) parsed = { ...parsed, easy: fixed.options[0].easy }
+          }
+        } catch (e) {
+          console.error('[tone-check] option rewrite failed', e)
+        }
+      }
       return NextResponse.json({
         text: reply,
         easy: String(parsed?.easy ?? ''),
@@ -362,27 +423,36 @@ export async function POST(req: Request) {
     if (!options.some((o) => o.available)) {
       return NextResponse.json(FAIL, { status: 502 })
     }
-    // 답장이 원문 단어를 3개 이상 되풀이하면 한 번 다듬는다
-    const heavy = options.filter((o) => o.text && repeated(text, o.text).length > 2)
-    if (heavy.length > 0) {
+    // 자동 검사: 모든 입력에 같은 기준을 적용해 문제 있는 답장만 한 번 고쳐 쓴다
+    const situation = parsed.situation && typeof parsed.situation === 'object' ? parsed.situation : {}
+    const deadline = typeof situation.deadline === 'string' ? situation.deadline.trim() : ''
+    const flagged = options
+      .filter((o) => o.text)
+      .map((o) => ({ o, issues: checkReply(text, o.text, { needsTime: o.id === 'proceed' && !!deadline }) }))
+      .filter((x) => x.issues.length > 0)
+    if (flagged.length > 0) {
       try {
         const fixed = await callOpenAI(
           REWRITE_RULES,
-          `받은 메시지: ${text}\n` + heavy.map((o) => `- id=${o.id} (${o.label}) 초안: ${o.text}\n  되풀이된 단어: ${repeated(text, o.text).join(', ')}`).join('\n'),
+          `받은 메시지: ${text}\n원문 기한: ${deadline || '없음'}\n` +
+            flagged.map(({ o, issues }) => `- id=${o.id} (${o.label}) 초안: ${o.text}\n  고칠 점: ${issues.join(' / ')}`).join('\n'),
         )
         for (const f of Array.isArray(fixed?.options) ? fixed.options : []) {
-          const o = options.find((x) => x.id === f?.id)
+          const hit = flagged.find((x) => x.o.id === f?.id)
           const t = typeof f?.text === 'string' ? f.text.trim() : ''
-          if (o && t && repeated(text, t).length < repeated(text, o.text).length) {
-            o.text = t
-            if (typeof f.easy === 'string' && f.easy.trim()) o.easy = f.easy.trim()
-            o.terms = cleanTerms(o.terms, [t])
+          if (!hit || !t) continue
+          const after = checkReply(text, t, { needsTime: hit.o.id === 'proceed' && !!deadline })
+          if (after.length < hit.issues.length) {
+            hit.o.text = t
+            if (typeof f.easy === 'string' && f.easy.trim()) hit.o.easy = f.easy.trim()
+            hit.o.terms = cleanTerms(hit.o.terms, [t])
           }
         }
       } catch (e) {
         console.error('[tone-check] rewrite failed', e)
       }
     }
+    const checks = Object.fromEntries(options.filter((o) => o.text).map((o) => [o.id, checkReply(text, o.text, { needsTime: o.id === 'proceed' && !!deadline })]))
     const result: ToneCheckResult = {
       interpretation: parsed.easy,
       tags: strs(parsed.tags, 3),
@@ -392,7 +462,8 @@ export async function POST(req: Request) {
       options,
       counterpart: counterpartLabel,
     }
-    return NextResponse.json(result)
+    // situation·checks는 화면에 쓰지 않고 품질 점검(자동 테스트)용으로만 내려준다
+    return NextResponse.json({ ...result, situation, checks })
   } catch (err) {
     console.error('[tone-check] failed', err)
     return NextResponse.json({ error: '분석에 실패했습니다. 다시 시도해 주세요.' }, { status: 500 })
