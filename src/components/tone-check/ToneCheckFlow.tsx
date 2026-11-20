@@ -1004,7 +1004,7 @@ export default function ToneCheckFlow() {
                 {activeReply && hasBlank(activeReply) && !(activeOption?.needsInput) && (
                   <span className="text-[11.5px]" style={{ color: 'var(--text-muted)' }}>[ ] 부분은 보내기 전에 직접 채워 주세요.</span>
                 )}
-                {activeOption && activeOption.needsInput && activeOption.available && (
+                {activeOption && activeOption.needsInput && activeOption.available && (!activeOption.text || hasBlank(activeOption.text) || !!generated[activeOption.id]) && (
                   <div className="flex flex-col gap-2 pt-2.5" style={{ borderTop: activeReply ? '1px dashed var(--border-default)' : 'none' }}>
                     <span className="text-[12px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
                       {activeOption.text && hasBlank(activeOption.text) ? activeOption.inputPrompt.replace('[ ] 부분에 들어갈 내용을 알려주세요', '[ ] 부분을 채우면 완성해 드려요') : activeOption.inputPrompt}

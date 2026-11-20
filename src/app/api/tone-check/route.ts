@@ -54,7 +54,7 @@ const TYPES: Record<string, { desc: string; options: OptDef[] }> = {
   question: {
     desc: '정보나 판단을 묻는 질문',
     options: [
-      { id: 'answer', label: '바로 답변', guide: '질문에 바로 답하는 답장. 답의 실제 내용(사실·수치·판단)은 사용자만 알므로 그 자리만 [ ]로 비워 둔다.', input: { prompt: '[ ] 부분에 들어갈 내용을 알려주세요', placeholder: '예: 들은 내용 없음' } },
+      { id: 'answer', label: '바로 답변', guide: '질문에 바로 답하는 답장. 업계 기준·규정·일반 실무 지식으로 답할 수 있으면 근거 한 가지와 함께 분명하게 답하고 다음 행동을 제안한다. 이 회사·이 건에서만 알 수 있는 사실(수치·일정·내부 결정)만 [ ]로 비워 둔다.', input: { prompt: '[ ] 부분에 들어갈 내용을 알려주세요', placeholder: '예: 들은 내용 없음' } },
       { id: 'check', label: '확인 후 회신', guide: '확인한 뒤 회신하겠다는 답장. 확인할 기준(무엇을 근거로 볼지)은 말하되 구체적 사실·수치를 지어내지 않는다.' },
       { id: 'criteria', label: '기준 되묻기', guide: '질문의 기준·범위가 모호할 때만 기준 한 가지를 되묻는다. 모호하지 않으면 available=false.' },
     ],
@@ -111,11 +111,17 @@ const TYPES: Record<string, { desc: string; options: OptDef[] }> = {
 const decodeRules = () => `당신은 회사 메시지를 해독하고 실무 답장을 작성한다. 사용자는 아래 메시지를 "받은 사람"이며 보낸 사람에게 회신한다.
 낯선 회사어와 업계용어를 실제 행동으로 해독하고, 사용자가 실무 표현을 이해하면서 사용할 수 있도록 돕는다.
 
+[업계 지식 활용 — 실무자 수준으로]
+- 사용자는 실무 전문가 수준의 답을 원한다. 원문에 나온 업계(패션·소재·인증·광고·유통·재무 등)의 표준 용어, 규정, 관행을 정확히 적용해 해석하고 답한다.
+- 약어·인증·서류명(예: SC, TC, GRS, MOQ, PO)은 업계 표준 정식 명칭과 실무상 의미로 풀고, terms에 반드시 넣는다.
+- 질문이 업계 기준으로 판단 가능한 것이면(예: "이 서류만으로 인증 제품이라고 해도 되나?") 막연히 "확인하겠다"로 피하지 말고, 기준에 따른 답과 이유, 해야 할 조치를 제시한다.
+- "지어내지 않는다"는 이 회사·이 거래의 구체적 사실(수량·날짜·내부 결정·상대 회사 상황)에만 해당한다. 일반적인 업계 지식은 자신 있게 쓴다. 확실하지 않은 업계 지식은 단정하지 않는다.
+
 [해독 처리 순서]
 1. 먼저 문장을 문자 그대로 정확하게 해석한다.
 2. 발신자가 요청한 행동, 제출·공유해야 할 결과물, 마감 시점, 공유 대상, 판단 기준, 불명확한 정보를 파악한다.
 3. 문장 속 회사어와 업계용어를 일상적인 한국어로 설명한다.
-4. 사용자가 지금 해야 할 일을 순서대로 제시한다.
+4. 사용자가 지금 해야 할 일을 업계 관행에 맞는 구체적 조치로 순서대로 제시한다(막연한 "검토", "확인"만 쓰지 않는다).
 
 [공통 금지]
 - 원문의 명사를 그대로 나열하며 요약하지 않는다.
@@ -154,6 +160,15 @@ ${TYPE_TABLE}
 3. 답장에 업계 표현을 쓸 때는 원문에 없던 표현을 고르고, 어색한 직역(예: 디벨롭 → 변형 작업)을 만들지 않는다.
 핵심 원칙: 답을 모르는 질문에 그럴듯한 사실·수치·상품명·일정을 지어내지 않는다. 사용자만 아는 정보는 [ ] 자리표시로 남긴다. 원문에 근거가 없어 억지로 만들어야 하는 질문·방향은 available=false로 하고 note에 이유를 한 줄로 쓴다(예: "추가로 확인할 내용이 명확하게 보이지 않습니다.").
 - text: 답장 본문(자리표시 [ ] 포함 가능). easy: 같은 내용을 전문용어 없이 쓴 "쉬운 답장" 한 문장. terms: text에 쓰인 낯선 표현의 풀이(0~3개, term은 text에 그대로 들어 있는 글자). text가 비어 있으면 easy와 terms도 비운다.
+
+[예시 7 — 업계 지식으로 답할 수 있는 질문] 입력: "이번 시즌 리사이클 폴리 원단 GRS 인증서 전달받았는데, SC만 있고 TC가 없네요. 이 상태로 바이어 측에 인증 원단이라고 안내해도 될까요?"
+easy: "업체가 GRS 인증을 받았다는 서류(SC)는 있지만 이번에 납품한 원단이 인증 제품이라는 거래 증명서(TC)가 없는데, 이대로 바이어에게 인증 원단이라고 말해도 되는지 묻는 말입니다."
+todos: ["SC는 업체 인증 범위 확인용이라 원단 자체의 인증 근거로는 부족함을 공유","공급사에 해당 납품 건 TC 발급 가능 여부 요청","TC 받기 전까지 바이어에게 인증 원단으로 안내 보류"]
+terms: GRS(Global Recycled Standard, 재활용 원료 함량과 생산 과정을 인증하는 국제 기준), SC(Scope Certificate, 인증받은 업체·사업장과 인증 범위를 확인하는 서류), TC(Transaction Certificate, 특정 거래로 납품된 제품이 인증 제품임을 증명하는 거래 인증서)
+message_type: question
+answer: "SC는 업체 인증 범위 확인용이라, 해당 원단을 인증 제품으로 안내하려면 TC 확인이 필요합니다. 공급사에 해당 납품 건 TC 발급 가능 여부 먼저 확인 부탁드립니다."
+check: "TC 없이는 인증 원단으로 안내하기 어려워서, 공급사에 TC 발급 가능 여부와 리드타임 확인한 뒤 안내 방향 정리해 드리겠습니다."
+criteria: "바이어 측에 인증 원단으로 안내하려는 시점이 언제인지, TC 발급 리드타임과 맞춰 볼 수 있게 알려주실 수 있을까요?"
 
 [예시 6 — 관계·안부가 있는 질문] 입력: "안녕하세요, 부장님! 오랜만에 연락드려요~ 퇴사 후에도 거래처에서 인증 문의가 종종 와서요. 렌징코리아 지사가 문을 닫았다고 들었는데 혹시 들으신 내용 있으실까요? 앞으로 홍콩 지사로 안내드리면 될까요?"
 situation.relationship: "퇴사한 전 직장 후배 → 전 상사(부장)", register: "부드러운 해요체"
@@ -262,7 +277,7 @@ async function callOpenAI(system: string, user: string): Promise<any | null> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: process.env.TONE_MODEL || 'gpt-4o-mini',
+      model: process.env.TONE_MODEL || 'gpt-4.1-mini',
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: system },
@@ -293,7 +308,8 @@ function stemsOf(s: string): string[] {
 }
 function repeated(original: string, reply: string): string[] {
   const r = reply.toLowerCase()
-  return stemsOf(original).filter((w) => r.includes(w))
+  // 영문 약어·코드(SC, TC, GRS 등)는 답에 꼭 필요한 핵심어라 되풀이로 세지 않는다
+  return stemsOf(original).filter((w) => !/^[a-z0-9]+$/.test(w) && r.includes(w))
 }
 
 const REWRITE_RULES = `당신은 회사 메신저 답장을 다듬는다. 각 답장 초안의 "고칠 점"만 고친다.
@@ -316,7 +332,7 @@ function checkReply(original: string, reply: string, opt: { needsTime?: boolean;
   const src = (original + ' ' + (opt.info ?? '')).toLowerCase()
   const r = reply.toLowerCase()
   const rep = repeated(original, reply)
-  if (rep.length > 2) issues.push(`원문 단어 되풀이(${rep.join(', ')}) → 핵심어 1~2개만 남기고 "말씀하신 내용"처럼 받아 쓰기`)
+  if (rep.length > 3) issues.push(`원문 단어 되풀이(${rep.join(', ')}) → 핵심어 1~2개만 남기고 "말씀하신 내용"처럼 받아 쓰기`)
   for (const g of TIME_GROUPS) {
     if (g.some((w) => r.includes(w)) && !g.some((w) => src.includes(w))) {
       issues.push(`원문에 없는 시점(${g.find((w) => r.includes(w))})을 만들어 냄 → 빼거나 원문 기한으로 바꾸기`)
