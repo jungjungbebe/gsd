@@ -15,9 +15,12 @@ export default function SiteFooter() {
         <Link href="/privacy" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>
           개인정보처리방침
         </Link>
-        <a href="mailto:tutone.kr@gmail.com" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>
-          문의하기
-        </a>
+        <Link href="/terms" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>
+          이용약관
+        </Link>
+        <Link href="/support" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>
+          고객지원
+        </Link>
       </div>
       <div style={{ marginTop: 4 }}>© 2026 투톤 (Tutone)</div>
     </footer>
