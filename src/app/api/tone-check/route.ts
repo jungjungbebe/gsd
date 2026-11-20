@@ -48,13 +48,13 @@ const TYPES: Record<string, { desc: string; options: OptDef[] }> = {
     options: [
       { id: 'proceed', label: '진행 확인', guide: '받았다는 표시 → 처리 약속 한 가지 → 공유 시점 순서로 쓴다. 요청 내용은 "말씀하신 내용", "해당 건"처럼 받아서 쓰고 원문 문장을 되풀이하지 않는다.' },
       { id: 'clarify', label: '정보 확인', guide: '업무 진행에 꼭 필요한데 원문에 빠진 정보(담당자·형식·기준·공유 대상·마감 모호)가 있을 때만 한 가지를 질문한다. 없으면 available=false.' },
-      { id: 'schedule', label: '일정 조율', guide: '원문에 마감이 있을 때만 available=true. 문장은 사용자가 가능한 일정을 입력한 뒤 만들므로 text는 비운다.', input: { prompt: '언제까지 가능하신가요?', placeholder: '예: 내일 오전' } },
+      { id: 'schedule', label: '일정 조율', guide: '원문에 마감이 있을 때만 available=true. 가능한 일정 자리는 [ ]로 비워 둔 초안을 쓴다.', input: { prompt: '언제까지 가능하신가요?', placeholder: '예: 내일 오전' } },
     ],
   },
   question: {
     desc: '정보나 판단을 묻는 질문',
     options: [
-      { id: 'answer', label: '바로 답변', guide: '답변에 쓸 실제 내용은 사용자만 안다. text는 비운다.', input: { prompt: '답변에 쓸 실제 내용을 입력해 주세요', placeholder: '예: A, B 상품은 리오더 필요' } },
+      { id: 'answer', label: '바로 답변', guide: '질문에 바로 답하는 답장. 답의 실제 내용(사실·수치·판단)은 사용자만 알므로 그 자리만 [ ]로 비워 둔다.', input: { prompt: '[ ] 부분에 들어갈 내용을 알려주세요', placeholder: '예: 들은 내용 없음' } },
       { id: 'check', label: '확인 후 회신', guide: '확인한 뒤 회신하겠다는 답장. 확인할 기준(무엇을 근거로 볼지)은 말하되 구체적 사실·수치를 지어내지 않는다.' },
       { id: 'criteria', label: '기준 되묻기', guide: '질문의 기준·범위가 모호할 때만 기준 한 가지를 되묻는다. 모호하지 않으면 available=false.' },
     ],
@@ -63,16 +63,16 @@ const TYPES: Record<string, { desc: string; options: OptDef[] }> = {
     desc: '승인 또는 결정 요청',
     options: [
       { id: 'approve', label: '승인', guide: '승인한다는 답장. 조건·금액 등 없는 내용을 지어내지 않는다.' },
-      { id: 'revise', label: '수정 요청', guide: '수정할 내용은 사용자가 입력한다. text는 비운다.', input: { prompt: '어떤 수정이 필요한가요?', placeholder: '예: 예산 항목 보완' } },
+      { id: 'revise', label: '수정 요청', guide: '수정할 내용은 사용자만 알므로 그 자리만 [ ]로 비워 둔 초안을 쓴다.', input: { prompt: '어떤 수정이 필요한가요?', placeholder: '예: 예산 항목 보완' } },
       { id: 'hold', label: '판단 보류', guide: '검토 후 판단해 회신하겠다는 보류 답장.' },
     ],
   },
   status_check: {
     desc: '진행 상황 확인',
     options: [
-      { id: 'share', label: '현재 상황 공유', guide: '현재 진행 상황은 사용자만 안다. text는 비운다.', input: { prompt: '현재 진행 상황을 알려주세요', placeholder: '예: 초안 작성 완료' } },
-      { id: 'eta', label: '완료 일정 안내', guide: '완료 시점은 사용자만 안다. text는 비운다.', input: { prompt: '완료 가능한 시점은 언제인가요?', placeholder: '예: 내일 오전' } },
-      { id: 'delay', label: '지연 사유 설명', guide: '지연 사유는 사용자만 안다. text는 비운다.', input: { prompt: '지연 사유는 무엇인가요?', placeholder: '예: 자료 수급 지연' } },
+      { id: 'share', label: '현재 상황 공유', guide: '현재 진행 상황은 사용자만 알므로 그 자리만 [ ]로 비워 둔 초안을 쓴다.', input: { prompt: '현재 진행 상황을 알려주세요', placeholder: '예: 초안 작성 완료' } },
+      { id: 'eta', label: '완료 일정 안내', guide: '완료 시점은 사용자만 알므로 그 자리만 [ ]로 비워 둔 초안을 쓴다.', input: { prompt: '완료 가능한 시점은 언제인가요?', placeholder: '예: 내일 오전' } },
+      { id: 'delay', label: '지연 사유 설명', guide: '지연 사유는 사용자만 알므로 그 자리만 [ ]로 비워 둔 초안을 쓴다.', input: { prompt: '지연 사유는 무엇인가요?', placeholder: '예: 자료 수급 지연' } },
     ],
   },
   feedback: {
@@ -80,14 +80,14 @@ const TYPES: Record<string, { desc: string; options: OptDef[] }> = {
     options: [
       { id: 'accept', label: '수용 후 반영', guide: '피드백을 받아들여 반영하겠다는 답장. 없는 수정 내용을 지어내지 않는다.' },
       { id: 'criteria', label: '구체적인 기준 질문', guide: '수정 방향·기준이 불명확할 때만 한 가지를 질문한다. 명확하면 available=false.' },
-      { id: 'explain', label: '다른 의견 설명', guide: '사용자의 의견은 사용자만 안다. text는 비운다.', input: { prompt: '전하고 싶은 의견을 입력해 주세요', placeholder: '예: 일정상 일부만 반영 가능' } },
+      { id: 'explain', label: '다른 의견 설명', guide: '사용자의 의견은 사용자만 알므로 그 자리만 [ ]로 비워 둔 초안을 쓴다.', input: { prompt: '전하고 싶은 의견을 입력해 주세요', placeholder: '예: 일정상 일부만 반영 가능' } },
     ],
   },
   schedule_coordination: {
     desc: '일정 제안 또는 조율',
     options: [
       { id: 'accept', label: '일정 수락', guide: '제안된 일정을 수락하는 답장.' },
-      { id: 'counter', label: '다른 일정 제안', guide: '가능한 일정은 사용자가 입력한다. text는 비운다.', input: { prompt: '가능한 일정은 언제인가요?', placeholder: '예: 수요일 오후' } },
+      { id: 'counter', label: '다른 일정 제안', guide: '가능한 일정은 사용자만 알므로 그 자리만 [ ]로 비워 둔 초안을 쓴다.', input: { prompt: '가능한 일정은 언제인가요?', placeholder: '예: 수요일 오후' } },
       { id: 'attend', label: '참석 여부 확인', guide: '참석자·장소·안건 등 원문에 불명확한 점이 있을 때만 한 가지를 확인한다. 없으면 available=false.' },
     ],
   },
@@ -103,7 +103,7 @@ const TYPES: Record<string, { desc: string; options: OptDef[] }> = {
     options: [
       { id: 'acknowledge', label: '상황 인정', guide: '문제 제기를 인정하고 살펴보겠다는 답장. 원인·잘못을 단정하지 않는다.' },
       { id: 'investigate', label: '원인 확인', guide: '원인 파악을 위해 확인하겠다는 답장 또는 원인 확인에 필요한 정보 한 가지를 묻는 질문.' },
-      { id: 'resolve', label: '해결 방향 제안', guide: '해결 방향은 사용자가 입력한다. text는 비운다.', input: { prompt: '해결 방향은 무엇인가요?', placeholder: '예: 오늘 중 재발행' } },
+      { id: 'resolve', label: '해결 방향 제안', guide: '해결 방향은 사용자만 알므로 그 자리만 [ ]로 비워 둔 초안을 쓴다.', input: { prompt: '해결 방향은 무엇인가요?', placeholder: '예: 오늘 중 재발행' } },
     ],
   },
 }
@@ -129,7 +129,7 @@ const decodeRules = () => `당신은 회사 메시지를 해독하고 실무 답
 - easy: "쉽게 풀면". 원문을 반복하지 말고 일상적인 말로 완전히 번역한 1~2문장. "~라는 뜻입니다" 형태.
 - tags: 짧은 키워드 3개(예: 요청, 마감, 기안). 감정 추측 키워드 금지.
 - todos: "내가 해야 할 일". 업무를 순서·마감 기준으로 분리한 2~5개의 짧은 단계.
-- terms: "문장 속 회사어". 원문에 실제로 나온 낯선 회사어·업계용어·한자어(0~6개). 붙어 있어도 단어 단위로 나눈다(예: '베리에이션 디벨롭' → '베리에이션', '디벨롭'). term은 원문에 나온 그대로의 글자여야 하며, meaning은 신입도 이해할 정확하고 쉬운 풀이 한 문장. 누구나 아는 단어는 넣지 않는다.
+- terms: "문장 속 회사어". 원문에 실제로 나온 낯선 회사어·업계용어·약어·외래어·한자어(0~6개). 사회초년생이 뜻을 헷갈릴 만한 표현만 넣는다. 인증·거래처·지사·회의·일정·확인·문의처럼 누구나 아는 단어는 넣지 않는다. 해당하는 표현이 없으면 빈 배열. 붙어 있어도 단어 단위로 나눈다(예: '베리에이션 디벨롭' → '베리에이션', '디벨롭'). term은 원문에 나온 그대로의 글자여야 하며, meaning은 신입도 이해할 정확하고 쉬운 풀이 한 문장. 누구나 아는 단어는 넣지 않는다.
 
 [1단계: 메시지 유형 분류 — message_type]
 답장을 쓰기 전에 입력 메시지의 주된 목적을 먼저 분류한다. 문장 형태가 아니라 실제 의도를 기준으로 한다. 물음표가 없어도 답변을 요구하면 question 또는 status_check일 수 있다. 여러 의도가 섞이면 가장 중요한 하나로 분류한다.
@@ -138,16 +138,35 @@ ${TYPE_TABLE}
 
 [2단계: 대응 방향별 답장 — options]
 선택한 유형의 대응 방향 각각에 대해 reply_options 항목을 만든다. 각 항목의 id는 위 표의 id를 그대로 쓴다.
-공통: 답장은 1문장, 최대 2문장. 합니다체. 과한 사과·감탄사·느낌표·이모지 금지. 실제 회사 메신저에서 자연스럽게 쓰는 말투.
+공통: 실제 회사 메신저에서 자연스럽게 쓰는 말투. 1~2문장, 원문에 안부·인사가 있으면 짧은 인사 한 문장을 더해 최대 3문장. 과한 사과·감탄사·느낌표·이모지 금지.
+[관계와 상황 맞추기 — 가장 중요]
+- situation.relationship과 situation.register를 먼저 정하고, 모든 답장의 말투·거리감을 그에 맞춘다.
+- 윗사람·클라이언트·처음 연락한 상대 → 정중한 합니다체. 가까운 동료·오랜만에 연락한 전 동료·후배 → 정중하지만 부드러운 해요체도 가능.
+- 원문이 안부·인사로 시작하면 답장도 짧게 인사를 받아 준다(예: "오랜만이에요, 잘 지내고 있어요."). 업무 요청에 인사가 없으면 인사를 덧붙이지 않는다.
+- 원문의 온도(격식/친근, 급함/여유)를 넘지 않게 맞춘다.
+[모든 방향에 기본 답장을 쓴다]
+- 사용자만 아는 사실(답의 내용, 가능한 일정, 진행 상황, 사유 등)이 필요한 자리는 지어내지 말고 짧은 자리표시 [ ]로 남긴다. 예: "[들은 내용]", "[가능한 일정]", "[현재 진행 상황]". 한 답장에 자리표시는 최대 2개.
+- 자리표시를 빼고 읽어도 보낼 수 있는 자연스러운 문장 구조로 쓴다.
+- [사용자 입력 필요] 방향은 input_hint에 이 메시지 상황에 맞는 입력 예시 하나를 짧게 쓴다(예: "들은 내용 없음", "다음 주 화요일").
 [답장 문장 규칙 — 모든 입력에 적용]
 1. 원문과 겹치는 단어는 꼭 필요한 핵심어 1~2개까지만 쓴다. 원문이 지시한 내용은 "말씀하신 내용", "해당 건", "요청하신 부분", "두 건 모두"처럼 받아서 쓴다. 원문을 어순만 바꿔 되풀이하면 실패다.
 2. 원문이 묻는 말이 아니라 내가 처리해야 하는 요청이면 "받았다는 표시 → 처리 약속 한 가지 → 공유 시점" 순서로 쓴다.
 3. 답장에 업계 표현을 쓸 때는 원문에 없던 표현을 고르고, 어색한 직역(예: 디벨롭 → 변형 작업)을 만들지 않는다.
-핵심 원칙: 답을 모르는 질문에 그럴듯한 사실·수치·상품명·일정을 지어내지 않는다. 사용자만 아는 정보가 필요한 방향은 text를 빈 문자열로 둔다(available=true). 원문에 근거가 없어 억지로 만들어야 하는 질문·방향은 available=false로 하고 note에 이유를 한 줄로 쓴다(예: "추가로 확인할 내용이 명확하게 보이지 않습니다.").
-- text: 답장 본문. easy: 같은 내용을 전문용어 없이 쓴 "쉬운 답장" 한 문장. terms: text에 쓰인 낯선 표현의 풀이(0~3개, term은 text에 그대로 들어 있는 글자). text가 비어 있으면 easy와 terms도 비운다.
+핵심 원칙: 답을 모르는 질문에 그럴듯한 사실·수치·상품명·일정을 지어내지 않는다. 사용자만 아는 정보는 [ ] 자리표시로 남긴다. 원문에 근거가 없어 억지로 만들어야 하는 질문·방향은 available=false로 하고 note에 이유를 한 줄로 쓴다(예: "추가로 확인할 내용이 명확하게 보이지 않습니다.").
+- text: 답장 본문(자리표시 [ ] 포함 가능). easy: 같은 내용을 전문용어 없이 쓴 "쉬운 답장" 한 문장. terms: text에 쓰인 낯선 표현의 풀이(0~3개, term은 text에 그대로 들어 있는 글자). text가 비어 있으면 easy와 terms도 비운다.
+
+[예시 6 — 관계·안부가 있는 질문] 입력: "안녕하세요, 부장님! 오랜만에 연락드려요~ 퇴사 후에도 거래처에서 인증 문의가 종종 와서요. 렌징코리아 지사가 문을 닫았다고 들었는데 혹시 들으신 내용 있으실까요? 앞으로 홍콩 지사로 안내드리면 될까요?"
+situation.relationship: "퇴사한 전 직장 후배 → 전 상사(부장)", register: "부드러운 해요체"
+terms: [] (누구나 아는 단어뿐)
+message_type: question
+answer: "오랜만이에요, 잘 지내죠? 지사 건은 [들은 내용]이고, 인증 문의는 [안내할 곳]으로 안내해 주시면 될 것 같아요.", input_hint "들은 내용 없음 / 홍콩 지사"
+check: "오랜만이에요, 연락 줘서 반가워요. 지사 건은 저도 정확히 확인해 보고 어디로 안내하면 될지 알려줄게요."
+criteria: available=false, note "질문이 명확해 되물을 기준이 보이지 않습니다."
 
 [0단계: 상황 파악 — situation] 다른 필드를 쓰기 전에 먼저 채운다. 아래 모든 필드는 이 분석에서 나와야 한다.
 - sender: 보낸 사람이 누구로 보이는지(모르면 "불명")
+- relationship: 보낸 사람과 받는 사람(사용자)의 관계 추정(예: "퇴사한 전 직장 후배 → 전 상사", "클라이언트 → 담당자"). 호칭·존댓말·인사·내용에서 근거를 찾는다
+- register: 답장에 맞는 말투("격식 합니다체" 또는 "부드러운 해요체")
 - intent: 보낸 사람이 실제로 원하는 것 한 줄
 - action: 받은 사람(사용자)이 해야 할 행동. 없으면 ""
 - deliverable: 넘겨야 할 결과물. 없으면 ""
@@ -157,10 +176,10 @@ ${TYPE_TABLE}
 짧은 말·구어체·오타·여러 요청이 섞인 메시지도 같은 방식으로 분석한다. 원문에 없는 내용을 채우지 않는다.
 
 [출력 JSON]
-{"situation": {"sender": string, "intent": string, "action": string, "deliverable": string, "deadline": string, "unclear": [string], "user_only": [string]},
+{"situation": {"sender": string, "relationship": string, "register": string, "intent": string, "action": string, "deliverable": string, "deadline": string, "unclear": [string], "user_only": [string]},
  "easy": string, "tags": [string,string,string], "todos": [string], "terms": [{"term": string, "meaning": string}],
  "message_type": string,
- "reply_options": [{"id": string, "available": boolean, "note": string, "text": string, "easy": string, "terms": [{"term": string, "meaning": string}]}]}
+ "reply_options": [{"id": string, "available": boolean, "note": string, "text": string, "input_hint": string, "easy": string, "terms": [{"term": string, "meaning": string}]}]}
 
 [예시 1] 입력: "킥오프 미팅에서 정리된 액션 아이템별 오너와 듀데이트를 지정해 금일 중 공유 부탁드립니다."
 easy: "회의에서 정한 할 일마다 담당자와 마감일을 정해서, 오늘 안에 알려달라는 뜻입니다."
@@ -169,13 +188,13 @@ terms: 킥오프 미팅(프로젝트를 시작할 때 목표와 역할을 맞추
 message_type: action_request
 proceed: "네, 확인했습니다. 항목별 담당자랑 일정 정리해서 오늘 중으로 전달드리겠습니다." / easy: "네, 확인했어요. 일마다 담당자와 마감일을 정해서 오늘 안에 보내드릴게요."
 clarify: available=true, "오너가 확정되지 않은 항목은 미정으로 표기해 공유드려도 될까요?"
-schedule: available=true(금일 중이라는 마감이 있음), text 빈 문자열
+schedule: available=true(금일 중이라는 마감이 있음), "금일 중 공유는 어려울 것 같아, [가능한 일정]까지 전달드려도 괜찮을까요?", input_hint "내일 오전"
 
 [예시 2] 입력: "현재 재고 커버리지 기준으로 추가 리오더가 필요한 SKU가 있을까요?"
 easy: "지금 남은 재고로 판매를 얼마나 이어갈 수 있는지 계산했을 때, 추가 주문이 필요한 상품이 있는지 묻는 말입니다."
 terms: 재고 커버리지(현재 재고로 예상 판매량을 몇 주 또는 몇 달 동안 감당할 수 있는지 나타내는 수치), 리오더(이미 주문했던 상품을 추가로 주문하는 것), SKU(색상·사이즈 등 옵션별로 구분한 개별 상품 단위)
 message_type: question
-answer: available=true, text 빈 문자열(실제 상품 정보를 사용자가 입력해야 함)
+answer: available=true, "확인해 보니 [리오더가 필요한 SKU]는 추가 주문이 필요한 상황입니다.", input_hint "A, B 상품"
 check: "현재고와 최근 판매 추이를 기준으로 SKU별 재고 커버리지를 확인한 후 리오더 필요 여부를 공유드리겠습니다."
 criteria: available=true, "재고 커버리지는 기존과 동일하게 4주 기준으로 검토하면 될까요?"
 
@@ -195,7 +214,8 @@ terms: 선집행(승인을 받기 전에 먼저 비용을 쓰거나 일을 진�
 
 const INPUT_RULES = `당신은 회사 메시지에 대한 답장을 작성한다.
 사용자가 제공한 "사용자 입력 정보"만 근거로, 지정된 대응 방향의 합니다체 답장을 쓴다.
-[구성] 반드시 두 부분으로 쓴다: ① 받았다는 표시("확인했습니다", "말씀하신 내용 확인했습니다" 등) ② 사용자 입력을 반영한 핵심 문장. 일정 조율이면 ② 안에 "원래 마감은 어렵다 + 입력한 시점 제안 + 괜찮은지 묻기"를 담는다. 한 문장짜리 짧은 질문(예: "내일 공유할 수 있을까요?")은 실패다. 30~90자.
+[기존 초안이 있으면] 초안의 말투·인사·문장 구조를 그대로 두고 [ ] 자리표시만 사용자 입력으로 자연스럽게 채운다. 입력이 다루지 않은 [ ]는 그 부분을 자연스럽게 덜어 낸다. 결과에 [ ]를 남기지 않는다.
+[구성] 초안이 없으면 반드시 두 부분으로 쓴다: ① 받았다는 표시("확인했습니다", "말씀하신 내용 확인했습니다" 등) ② 사용자 입력을 반영한 핵심 문장. 일정 조율이면 ② 안에 "원래 마감은 어렵다 + 입력한 시점 제안 + 괜찮은지 묻기"를 담는다. 한 문장짜리 짧은 질문(예: "내일 공유할 수 있을까요?")은 실패다. 30~130자.
 [금지] 사용자가 제공하지 않은 사실·시간·날짜·수량·상품명·사유를 만들지 않는다. 원문에 없던 업무나 약속을 추가하지 않는다. 원문과 겹치는 단어는 핵심어 1~2개까지만 쓰고, 원문이 지시한 내용은 "말씀하신 내용", "해당 건"처럼 받아서 쓴다. 과한 사과·감탄사·느낌표·이모지 금지.
 [예시]
 - 원문 마감 "EOD", 방향 "일정 조율", 입력 "내일" → "말씀하신 내용 확인했습니다. 오늘 중 마무리는 어려울 것 같아, 내일까지 정리해서 공유드려도 괜찮을까요?"
@@ -277,7 +297,7 @@ function repeated(original: string, reply: string): string[] {
 }
 
 const REWRITE_RULES = `당신은 회사 메신저 답장을 다듬는다. 각 답장 초안의 "고칠 점"만 고친다.
-규칙: 원문과 겹치는 단어는 꼭 필요한 핵심어 1~2개만 남긴다. 원문이 지시한 내용은 "말씀하신 내용", "해당 건", "요청하신 부분"처럼 받아서 쓴다. 내가 처리할 요청이면 "받았다는 표시 → 처리 약속 한 가지 → 공유 시점" 순서. 뜻·약속·일정은 바꾸지 않고, 없는 사실을 더하지 않는다. 합니다체 1~2문장. 어색한 직역 금지.
+규칙: 원문과 겹치는 단어는 꼭 필요한 핵심어 1~2개만 남긴다. 원문이 지시한 내용은 "말씀하신 내용", "해당 건", "요청하신 부분"처럼 받아서 쓴다. 내가 처리할 요청이면 "받았다는 표시 → 처리 약속 한 가지 → 공유 시점" 순서. 뜻·약속·일정·말투(합니다체/해요체)·인사는 바꾸지 않고, 없는 사실을 더하지 않는다. [ ] 자리표시는 그대로 둔다. 1~3문장. 어색한 직역 금지.
 출력 JSON: {"options": [{"id": string, "text": string, "easy": string}]}`
 
 // 답장 자동 검사 (모델과 무관하게 코드로 판단)
@@ -307,8 +327,8 @@ function checkReply(original: string, reply: string, opt: { needsTime?: boolean;
   if (nums.length) issues.push(`원문에 없는 숫자(${nums.join(', ')}) → 빼기`)
   if (opt.needsTime && !TIME_WORDS.test(reply)) issues.push('원문 기한이 있는데 공유 시점이 빠짐 → 원문 기한에 맞춰 넣기')
   if (reply.length < 15) issues.push('너무 짧음 → 받았다는 표시와 핵심 문장 두 부분으로')
-  if (reply.length > 130) issues.push('너무 김 → 1~2문장으로')
-  if ((reply.match(/[.?]\s/g) ?? []).length >= 2) issues.push('문장이 3개 이상 → 2문장 이내로')
+  if (reply.length > 170) issues.push('너무 김 → 인사 포함 3문장 이내로')
+  if ((reply.match(/[.?]\s/g) ?? []).length >= 3) issues.push('문장이 4개 이상 → 인사 포함 3문장 이내로')
   if (/[!！]|[\u2600-\u27BF]|[\uD83C-\uDBFF][\uDC00-\uDFFF]/.test(reply)) issues.push('느낌표·이모지 → 빼기')
   return issues
 }
@@ -345,7 +365,8 @@ export async function POST(req: Request) {
       if (!info || info.length > 80) {
         return NextResponse.json({ error: '내용을 80자 이내로 입력해 주세요.' }, { status: 400 })
       }
-      const prompt = `받은 메시지: ${text}\n대응 방향: ${def.label} (${def.guide})\n사용자 입력 정보: ${info}`
+      const draft = typeof body.draft === 'string' ? body.draft.trim().slice(0, 300) : ''
+      const prompt = `받은 메시지: ${text}\n대응 방향: ${def.label} (${def.guide})\n사용자 입력 정보: ${info}` + (draft ? `\n기존 초안(말투·인사·구조 유지, [ ] 자리만 입력 정보로 채우기): ${draft}` : '')
       let parsed: any = null
       let reply = ''
       // 형식이 어긋나거나 일시 오류면 한 번 더 시도
@@ -404,16 +425,17 @@ export async function POST(req: Request) {
       const o = parsed.reply_options.find((x: any) => x?.id === def.id) ?? {}
       const needsInput = !!def.input
       const textRaw = typeof o.text === 'string' ? o.text.trim() : ''
-      // 입력이 필요한 방향은 본문을 비우고, 그 외 방향은 본문이 있어야 사용 가능
-      const available = needsInput ? o.available !== false : o.available !== false && textRaw.length > 0
-      const text = needsInput ? '' : available ? textRaw : ''
+      // 모든 방향은 기본 답장(사용자만 아는 부분은 [ ] 자리표시)을 가진다. 입력형은 초안이 비어도 입력으로 만들 수 있어 사용 가능
+      const available = needsInput ? o.available !== false || textRaw.length > 0 : o.available !== false && textRaw.length > 0
+      const text = available ? textRaw : ''
+      const hint = typeof o.input_hint === 'string' ? o.input_hint.trim().slice(0, 40) : ''
       return {
         id: def.id,
         label: def.label,
         available,
         needsInput,
         inputPrompt: def.input?.prompt ?? '',
-        placeholder: def.input?.placeholder ?? '',
+        placeholder: def.input ? (hint ? `예: ${hint}` : def.input.placeholder) : '',
         note: available ? '' : String(o.note || '추가로 확인할 내용이 명확하게 보이지 않습니다.'),
         text,
         easy: text ? String(o.easy ?? '') : '',

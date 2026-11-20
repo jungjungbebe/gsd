@@ -1,7 +1,7 @@
 'use client'
 
 import { requestAiConsent } from '@/lib/aiConsent'
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { addPatternRecord, addPlaybookRecord, addScrapRecord, getScrapRecords, removeScrapRecord, type ToneCheckScrapRecord } from '@/lib/tutone-records'
@@ -99,6 +99,27 @@ function detectTraps(text: string) {
 }
 
 // 회사어에 밑줄을 긋고, 누르면 뜻이 열리게 한다
+// 답장 속 [ ] 자리표시(사용자만 아는 내용)는 눈에 띄게 표시하고, 나머지는 회사어 밑줄 처리
+const BLANK_RE = /(\[[^\]\n]{1,30}\])/
+function hasBlank(text: string): boolean {
+  return BLANK_RE.test(text)
+}
+function renderReply(text: string, terms: Term[], open: string | null, onTap: (t: string) => void): React.ReactNode {
+  if (!hasBlank(text)) return renderTerms(text, terms, open, onTap)
+  return text.split(BLANK_RE).map((part, i) =>
+    BLANK_RE.test(part) ? (
+      <span
+        key={'b' + i}
+        style={{ color: 'var(--purple-500)', background: 'rgba(124,92,252,0.12)', border: '1px dashed rgba(124,92,252,0.5)', borderRadius: 4, padding: '0 4px', fontWeight: 600 }}
+      >
+        {part}
+      </span>
+    ) : (
+      <Fragment key={'t' + i}>{renderTerms(part, terms, open, onTap)}</Fragment>
+    ),
+  )
+}
+
 function renderTerms(text: string, terms: Term[], open: string | null, onTap: (t: string) => void): React.ReactNode {
   if (!terms.length) return text
   const sorted = [...terms].sort((a, b) => b.term.length - a.term.length)
@@ -323,8 +344,8 @@ export default function ToneCheckFlow() {
   const activeOption = result?.options.find((o) => o.id === replyMode) ?? null
   const activeVariant: ReplyVariant | null = !activeOption
     ? null
-    : activeOption.needsInput
-      ? generated[activeOption.id] ?? null
+    : activeOption.needsInput && generated[activeOption.id]
+      ? generated[activeOption.id]
       : activeOption.available && activeOption.text
         ? { text: activeOption.text, easy: activeOption.easy, terms: activeOption.terms }
         : null
@@ -343,7 +364,7 @@ export default function ToneCheckFlow() {
       const res = await fetch('/api/tone-check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'option', text: submittedText, messageType: result?.messageType, optionId: activeOption.id, info }),
+        body: JSON.stringify({ mode: 'option', text: submittedText, messageType: result?.messageType, optionId: activeOption.id, info, draft: activeOption.text }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -975,10 +996,18 @@ export default function ToneCheckFlow() {
                     {activeOption.note}
                   </span>
                 )}
+                {activeReply && (
+                  <span className="text-[13.5px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                    &ldquo;{renderReply(activeReply, replyShownTerms, openTerm, tapTerm)}&rdquo;
+                  </span>
+                )}
+                {activeReply && hasBlank(activeReply) && !(activeOption?.needsInput) && (
+                  <span className="text-[11.5px]" style={{ color: 'var(--text-muted)' }}>[ ] 부분은 보내기 전에 직접 채워 주세요.</span>
+                )}
                 {activeOption && activeOption.needsInput && activeOption.available && (
-                  <div className="flex flex-col gap-2">
-                    <span className="text-[12.5px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-                      {activeOption.inputPrompt}
+                  <div className="flex flex-col gap-2 pt-2.5" style={{ borderTop: activeReply ? '1px dashed var(--border-default)' : 'none' }}>
+                    <span className="text-[12px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                      {activeOption.text && hasBlank(activeOption.text) ? activeOption.inputPrompt.replace('[ ] 부분에 들어갈 내용을 알려주세요', '[ ] 부분을 채우면 완성해 드려요') : activeOption.inputPrompt}
                     </span>
                     <div className="flex gap-1.5">
                       <input
@@ -995,16 +1024,11 @@ export default function ToneCheckFlow() {
                         className="text-white text-[12px] font-bold px-3.5 shrink-0"
                         style={{ background: 'var(--purple-500)', borderRadius: 10, opacity: !(infoInputs[activeOption.id] ?? '').trim() || negoLoading ? 0.5 : 1 }}
                       >
-                        {negoLoading ? '작성 중…' : generated[activeOption.id] ? '다시 작성' : '답장 만들기'}
+                        {negoLoading ? '작성 중…' : generated[activeOption.id] ? '다시 작성' : activeOption.text ? '채우기' : '답장 만들기'}
                       </button>
                     </div>
                     {negoError && <span className="text-[11.5px]" style={{ color: '#c0392b' }}>{negoError}</span>}
                   </div>
-                )}
-                {activeReply && (
-                  <span className="text-[13.5px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-                    &ldquo;{renderTerms(activeReply, replyShownTerms, openTerm, tapTerm)}&rdquo;
-                  </span>
                 )}
                 {openMeaning && (
                   <div className="text-[12px] leading-relaxed px-3 py-2" style={{ background: 'rgba(201,137,31,0.14)', borderRadius: 10, color: 'var(--text-primary)' }}>
