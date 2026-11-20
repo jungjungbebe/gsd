@@ -309,9 +309,12 @@ export default function MyPage() {
         )}
       </div>
       <div style={{ textAlign: 'center', margin: '28px 0 8px' }}>
-        <Link href="/account/delete" style={{ fontSize: 13, color: 'var(--text-secondary)', textDecoration: 'underline' }}>
-          계정 삭제
-        </Link>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 14, flexWrap: 'wrap', fontSize: 13 }}>
+          <Link href="/support" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>고객지원</Link>
+          <Link href="/terms" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>이용약관</Link>
+          <Link href="/privacy" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>개인정보처리방침</Link>
+          <Link href="/account/delete" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>계정 삭제</Link>
+        </div>
       </div>
     </div>
   )
