@@ -1,5 +1,6 @@
 'use client'
 
+import { requestAiConsent } from '@/lib/aiConsent'
 import { useEffect, useRef, useState } from 'react'
 import Script from 'next/script'
 import styles from './KakaoMap.module.css'
@@ -534,7 +535,9 @@ export default function ThemeCycle({
     beginHunt(dataUrl)
   }
 
-  function beginHunt(dataUrl: string) {
+  async function beginHunt(dataUrl: string) {
+    // 처음 사진을 AI로 보내기 전에 전송 동의를 받는다
+    if (!(await requestAiConsent())) return
     setCapturedPhoto(dataUrl)
     setHuntResult(null)
     setMismatch(null)
