@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { findTerms, glossaryPrompt, sheetMeaning, type GlossaryHit } from '@/lib/glossary'
 import { clientIp, rateLimit } from '@/lib/rate-limit'
 
 const MAX_TEXT = 1000
@@ -273,6 +274,15 @@ function cleanTerms(raw: unknown, within: string[]): Term[] {
   return out
 }
 
+// 풀이는 용어 사전(시트) 뜻을 우선한다
+function withSheet(terms: Term[], hits: GlossaryHit[]): Term[] {
+  if (!hits.length) return terms
+  return terms.map((t) => {
+    const m = sheetMeaning(t.term, hits)
+    return m ? { ...t, meaning: m } : t
+  })
+}
+
 function strs(raw: unknown, max: number): string[] {
   return Array.isArray(raw)
     ? raw.filter((s): s is string => typeof s === 'string' && s.trim().length > 0).map((s) => s.trim()).slice(0, max)
@@ -394,13 +404,14 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: '내용을 80자 이내로 입력해 주세요.' }, { status: 400 })
       }
       const draft = typeof body.draft === 'string' ? body.draft.trim().slice(0, 300) : ''
+      const optHits = findTerms(text)
       const prompt = `받은 메시지: ${text}\n대응 방향: ${def.label} (${def.guide})\n사용자 입력 정보: ${info}` + (draft ? `\n기존 초안(말투·인사·구조 유지, [ ] 자리만 입력 정보로 채우기): ${draft}` : '')
       let parsed: any = null
       let reply = ''
       // 형식이 어긋나거나 일시 오류면 한 번 더 시도
       for (let attempt = 0; attempt < 2 && reply.length < 20; attempt++) {
         try {
-          parsed = await callOpenAI(INPUT_RULES, prompt)
+          parsed = await callOpenAI(INPUT_RULES + glossaryPrompt(optHits), prompt)
         } catch (e) {
           console.error('[tone-check] option parse failed', e)
           parsed = null
@@ -433,7 +444,7 @@ export async function POST(req: Request) {
       return NextResponse.json({
         text: reply,
         easy: String(parsed?.easy ?? ''),
-        terms: cleanTerms(parsed?.terms, [reply]),
+        terms: withSheet(cleanTerms(parsed?.terms, [reply]), [...optHits, ...findTerms(reply)]),
       })
     }
 
@@ -442,7 +453,8 @@ export async function POST(req: Request) {
     const contextLine = counterpartLabel
       ? `\n참고: 이 메시지는 "${counterpartLabel}"가 보낸 메시지입니다. 관계를 고려해 답장 톤을 보정하세요.`
       : ''
-    const parsed = await callOpenAI(decodeRules() + contextLine, text)
+    const hits = findTerms(text)
+    const parsed = await callOpenAI(decodeRules() + contextLine + glossaryPrompt(hits), text)
     if (!parsed) return NextResponse.json(FAIL, { status: 502 })
     const messageType: string = typeof parsed.message_type === 'string' && TYPES[parsed.message_type] ? parsed.message_type : 'action_request'
     if (typeof parsed?.easy !== 'string' || !Array.isArray(parsed?.reply_options)) {
@@ -467,7 +479,7 @@ export async function POST(req: Request) {
         note: available ? '' : String(o.note || '추가로 확인할 내용이 명확하게 보이지 않습니다.'),
         text,
         easy: text ? String(o.easy ?? '') : '',
-        terms: text ? cleanTerms(o.terms, [text]) : [],
+        terms: text ? withSheet(cleanTerms(o.terms, [text]), [...hits, ...findTerms(text)]) : [],
       }
     })
     if (!options.some((o) => o.available)) {
@@ -495,7 +507,7 @@ export async function POST(req: Request) {
           if (after.length < hit.issues.length) {
             hit.o.text = t
             if (typeof f.easy === 'string' && f.easy.trim()) hit.o.easy = f.easy.trim()
-            hit.o.terms = cleanTerms(hit.o.terms, [t])
+            hit.o.terms = withSheet(cleanTerms(hit.o.terms, [t]), [...hits, ...findTerms(t)])
           }
         }
       } catch (e) {
@@ -507,7 +519,7 @@ export async function POST(req: Request) {
       interpretation: parsed.easy,
       tags: strs(parsed.tags, 3),
       todos: strs(parsed.todos, 5),
-      terms: cleanTerms(parsed.terms, [text]),
+      terms: withSheet(cleanTerms(parsed.terms, [text]), hits),
       messageType,
       options,
       counterpart: counterpartLabel,
