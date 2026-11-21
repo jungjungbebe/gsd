@@ -36,6 +36,7 @@ interface ReplyOption {
 }
 
 interface ToneCheckResult {
+  hidden?: { surface: string; real: string; cue: string; alt: string }
   interpretation: string
   tags: string[]
   todos?: string[]
@@ -860,6 +861,32 @@ export default function ToneCheckFlow() {
             {/* 한 줄 해독 + 해야 할 일 + 회사어 */}
             <div className="glass-card-elevated p-4 flex flex-col gap-4">
               <span className="label-mono" style={{ color: 'var(--text-secondary)' }}>DECODE</span>
+              {result.hidden?.real && (
+                <div className="p-3.5 flex flex-col gap-2" style={{ background: 'rgba(124,92,252,0.10)', border: '1px solid rgba(124,92,252,0.28)', borderRadius: 14 }}>
+                  <p className="font-bold text-[15px]" style={{ color: 'var(--purple-500)' }}>속뜻</p>
+                  {result.hidden.surface && (
+                    <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                      <span className="font-semibold">겉말</span> · {result.hidden.surface}
+                    </p>
+                  )}
+                  <p className="text-[14px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                    <span className="font-semibold" style={{ color: 'var(--purple-500)' }}>실제로는</span> · <b>{result.hidden.real}</b>
+                  </p>
+                  {result.hidden.cue && (
+                    <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                      근거가 된 표현{' '}
+                      <span style={{ color: 'var(--text-primary)', background: 'rgba(124,92,252,0.16)', borderRadius: 4, padding: '0 4px', textDecoration: 'underline', textDecorationColor: 'rgba(124,92,252,0.55)', textUnderlineOffset: 3 }}>
+                        &ldquo;{result.hidden.cue}&rdquo;
+                      </span>
+                    </p>
+                  )}
+                  {result.hidden.alt && (
+                    <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                      다르게 읽으면 · {result.hidden.alt}
+                    </p>
+                  )}
+                </div>
+              )}
               <div>
                 <p className="font-bold text-[16px] mb-1.5" style={{ color: 'var(--text-primary)' }}>
                   쉽게 풀면

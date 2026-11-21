@@ -33,6 +33,14 @@ interface ToneCheckResult {
   messageType: string
   options: ReplyOption[]
   counterpart?: string
+  hidden?: Hidden
+}
+
+interface Hidden {
+  surface: string
+  real: string
+  cue: string
+  alt: string
 }
 
 interface OptDef {
@@ -121,15 +129,34 @@ const decodeRules = () => `당신은 회사 메시지를 해독하고 실무 답
 - [ ] 자리표시 이름도 "[현재 진행 상황]", "[원인]"처럼 막연하게 쓰지 말고, 이런 상황에서 실무에서 가장 흔한 후보를 담아 구체적으로 쓴다(예: "[구매팀 ERP 데이터]", "[단위 환산 오류]"). 사용자는 맞으면 그대로, 다르면 고쳐 쓴다.
 - "지어내지 않는다"는 이 회사·이 거래의 구체적 사실(수량·날짜·내부 결정·상대 회사 상황)에만 해당한다. 일반적인 업계 지식은 자신 있게 쓴다. 확실하지 않은 업계 지식은 단정하지 않는다.
 
+[돌려 말하기 읽기 — 한국 회사 메신저]
+한국 직장인은 요청·지적·재촉·부탁·지시를 질문, 혼잣말, 걱정, 정보 공유처럼 돌려서 말한다. 겉말이 아니라 보낸 사람이 받는 사람에게 실제로 원하는 행동을 찾는다.
+자주 쓰는 신호와 실제 뜻:
+- "한번 봐주시면 좋을 것 같기도 하고요", "~하면 어떨까 하는 생각도 들고요" → 해 달라는 요청
+- "위에서 질문이 나올 수도 있을 것 같네요", "숫자는 다 들어가 있는데" → 부족한 부분을 보완해서 다시 달라는 지적
+- "그 뒤로 따로 들은 게 없어서요", "지난번에 한번 하셨던 거죠?" → 진행 상황을 공유하라는 재촉
+- "저희 쪽이 좀 빠듯해서… 그쪽은 상황이 어떠신지 해서요" → 도와 달라는 부탁(인력·자원 지원)
+- "다들 한번씩 보시는 거죠?", "저번에 ~한 적이 있어서 그냥 여쭤봐요" → 이번에는 꼭 하라는 지시
+- 문제를 지적한 뒤 "시간 되실 때요", "급한 건 아니고요" → 실제로는 빨리 처리해야 함
+- "저도 좀 애매하네요", "뭐라고 해야 할지 잘 모르겠네요" → 판단하거나 정리해 달라는 요청
+- "~인 것 같긴 한데… 아니면 ~도 나쁘지 않을 것 같고요" → 뒤쪽(덜 확정적인 쪽)이 실제로 원하는 방향인 경우가 많음
+hidden 필드:
+- surface: 겉으로 하는 말 한 줄(예: "상대 팀 인력 상황을 묻는다")
+- real: 실제로 원하는 것 한 줄, 받는 사람이 할 행동으로(예: "재고 실사 입회 인원을 지원해 달라는 부탁")
+- cue: 속뜻을 드러내는 원문 표현을 원문 글자 그대로 짧게(10~40자)
+- alt: 다르게 읽힐 여지가 있으면 다른 해석 한 줄, 확실하면 ""
+- 메시지가 원하는 바를 직접 말하고 있으면(돌려 말하지 않음) surface·real·cue를 모두 ""로 둔다.
+속뜻이 있으면 easy, todos, 모든 답장은 겉말이 아니라 real에 맞춘다. 답장은 상대가 실제로 원하는 것에 답한다(예: 인력 상황을 물었지만 지원을 부탁한 것이면 "지원 가능 여부·인원"으로 답한다).
+
 [해독 처리 순서]
-1. 먼저 문장을 문자 그대로 정확하게 해석한다.
+1. 먼저 문장을 문자 그대로 해석하고, 이어서 겉말과 속뜻을 나눈다(아래 [돌려 말하기 읽기]).
 2. 발신자가 요청한 행동, 제출·공유해야 할 결과물, 마감 시점, 공유 대상, 판단 기준, 불명확한 정보를 파악한다.
 3. 문장 속 회사어와 업계용어를 일상적인 한국어로 설명한다.
 4. 사용자가 지금 해야 할 일을 업계 관행에 맞는 구체적 조치로 순서대로 제시한다(막연한 "검토", "확인"만 쓰지 않는다).
 
 [공통 금지]
 - 원문의 명사를 그대로 나열하며 요약하지 않는다.
-- 근거 없이 재촉, 불만, 압박, 지연 등의 감정을 추측하지 않는다.
+- 원문 표현에 근거가 없는 감정(재촉, 불만, 압박)을 지어내지 않는다. 단, 아래 돌려 말하기 표현은 그 자체가 근거다.
 - 기안과 기한, 결재와 결제처럼 형태가 비슷한 단어를 혼동하지 않는다.
 - 사용자가 의미를 이해할 수 없는 전문용어를 설명 없이 추가하지 않는다.
 - 메시지에 없는 업무·산출물·일정·수량·책임자·공유 대상을 만들어내지 않는다.
@@ -183,6 +210,19 @@ answer: "[구매팀 ERP 데이터] 기준으로 재집계 중입니다. 일부 �
 check: "구매량 원천 데이터와 지난 자료의 집계 기준을 대조해 차이 원인 확인한 뒤, 재집계 결과와 함께 공유드리겠습니다."
 criteria: "차이가 크게 보인 품목이 있으면 알려주실 수 있을까요? 해당 품목부터 단위와 집계 기준 대조해 보겠습니다."
 
+[예시 9 — 돌려 말하는 부탁] 입력: "감사 일정 나왔다고 들었는데, 재고 실사 때 저희 쪽 인원이 좀 빠듯할 수도 있어서… 그쪽 팀은 상황이 어떠신지 해서요."
+hidden: surface "상대 팀 인력 상황을 묻는다", real "재고 실사 입회 인원을 지원해 달라는 부탁", cue "저희 쪽 인원이 좀 빠듯할 수도 있어서", alt "단순히 일정 공유 차원에서 상황을 묻는 것일 수도 있음"
+easy: "재고 실사 때 자기 팀 인원이 부족할 것 같으니, 우리 팀에서 사람을 지원해 줄 수 있는지 묻는 말입니다."
+todos: ["실사 날짜에 지원 가능한 인원 확인","지원 가능 인원과 시간대 회신","실사 일정 확정되면 담당자 연결"]
+message_type: question
+answer: "실사 때 인원 필요하시면 저희 쪽에서 [1~2명] 지원 가능합니다. 일정 확정되면 말씀 주세요.", input_hint "2명, 오전만"
+check: "실사 날짜 기준으로 저희 팀 지원 가능한 인원 확인해서 바로 말씀드릴게요."
+criteria: "실사 때 몇 분 정도, 어느 시간대에 지원이 필요하신지 알려주시면 맞춰서 확인해 보겠습니다."
+
+[예시 10 — 돌려 말하는 지적] 입력: "예실 자료 잘 받았습니다~ 숫자는 다 들어가 있는데 위에서 보시면 아마 판관비 쪽에서 질문이 좀 나올 수도 있을 것 같네요."
+hidden: surface "자료를 잘 받았다고 인사한다", real "판관비 차이 원인 설명을 보완해서 다시 달라는 지적", cue "판관비 쪽에서 질문이 좀 나올 수도", alt ""
+answer: "판관비 쪽 차이 원인 계정별로 코멘트 보완해서 다시 공유드리겠습니다."
+
 [예시 6 — 관계·안부가 있는 질문] 입력: "안녕하세요, 부장님! 오랜만에 연락드려요~ 퇴사 후에도 거래처에서 인증 문의가 종종 와서요. 렌징코리아 지사가 문을 닫았다고 들었는데 혹시 들으신 내용 있으실까요? 앞으로 홍콩 지사로 안내드리면 될까요?"
 situation.relationship: "퇴사한 전 직장 후배 → 전 상사(부장)", register: "부드러운 해요체"
 terms: [] (누구나 아는 단어뿐)
@@ -205,6 +245,7 @@ criteria: available=false, note "질문이 명확해 되물을 기준이 보이�
 
 [출력 JSON]
 {"situation": {"sender": string, "relationship": string, "register": string, "intent": string, "action": string, "deliverable": string, "deadline": string, "unclear": [string], "user_only": [string]},
+ "hidden": {"surface": string, "real": string, "cue": string, "alt": string},
  "easy": string, "tags": [string,string,string], "todos": [string], "terms": [{"term": string, "meaning": string}],
  "message_type": string,
  "reply_options": [{"id": string, "available": boolean, "note": string, "text": string, "input_hint": string, "easy": string, "terms": [{"term": string, "meaning": string}]}]}
@@ -515,6 +556,11 @@ export async function POST(req: Request) {
       }
     }
     const checks = Object.fromEntries(options.filter((o) => o.text).map((o) => [o.id, checkReply(text, o.text, { needsTime: o.id === 'proceed' && !!deadline })]))
+    const h = parsed.hidden && typeof parsed.hidden === 'object' ? parsed.hidden : {}
+    const hs = (v: unknown, n: number) => (typeof v === 'string' ? v.trim().slice(0, n) : '')
+    const hidden: Hidden | undefined = hs(h.real, 120)
+      ? { surface: hs(h.surface, 120), real: hs(h.real, 120), cue: text.includes(hs(h.cue, 80)) ? hs(h.cue, 80) : '', alt: hs(h.alt, 120) }
+      : undefined
     const result: ToneCheckResult = {
       interpretation: parsed.easy,
       tags: strs(parsed.tags, 3),
@@ -523,6 +569,7 @@ export async function POST(req: Request) {
       messageType,
       options,
       counterpart: counterpartLabel,
+      hidden,
     }
     // situation·checks는 화면에 쓰지 않고 품질 점검(자동 테스트)용으로만 내려준다
     return NextResponse.json({ ...result, situation, checks })
